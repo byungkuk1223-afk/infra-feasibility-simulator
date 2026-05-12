@@ -270,6 +270,13 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI','Malgu
 .epc-pros{margin-top:0.6rem;font-size:0.7rem;color:var(--green);}
 .epc-cons{margin-top:0.2rem;font-size:0.7rem;color:var(--red);}
 @keyframes fadeInUp { from{transform:translateY(30px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+@keyframes efAnim { 0%{opacity:0;transform:translate(-50%,-50%) scale(0.7);} 15%{opacity:1;transform:translate(-50%,-50%) scale(1.05);} 80%{opacity:1;transform:translate(-50%,-50%) scale(1);} 100%{opacity:0;transform:translate(-50%,-50%) scale(0.95);} }
+#event-flash{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4000;pointer-events:none;display:none;text-align:center;background:rgba(8,12,24,0.92);border-radius:20px;padding:1.8rem 2.5rem;border:2px solid var(--accent);min-width:260px;box-shadow:0 0 40px rgba(0,212,255,0.3);}
+#event-flash .ef-icon{font-size:3rem;display:block;margin-bottom:0.5rem;}
+#event-flash .ef-type{font-size:0.72rem;font-weight:700;letter-spacing:0.1em;color:var(--text2);margin-bottom:0.3rem;}
+#event-flash .ef-title{font-size:1.15rem;font-weight:900;color:var(--text);}
+#event-flash.ef-crisis{border-color:var(--red);box-shadow:0 0 40px rgba(255,68,68,0.4);}
+#event-flash.ef-opportunity{border-color:var(--green);box-shadow:0 0 40px rgba(0,230,118,0.4);}
 
 @media(max-width:900px) {
   .infra-grid { grid-template-columns:repeat(2,1fr); }
@@ -481,6 +488,13 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI','Malgu
   <div style="padding:1rem 2rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
     <button class="btn-primary" id="btn-epc-next" onclick="startSim()" disabled>시뮬레이션 시작 🚀</button>
   </div>
+</div>
+
+<!-- EVENT FLASH -->
+<div id="event-flash">
+  <span class="ef-icon" id="ef-icon">⚠️</span>
+  <div class="ef-type" id="ef-type">위기</div>
+  <div class="ef-title" id="ef-title"></div>
 </div>
 
 <!-- ANNUAL REPORT MODAL -->
@@ -1423,7 +1437,7 @@ function startSim(){
     cumulativeNPV:0, operationCumProfit:0,
     bepAchieved:false, bepMonth:null,
     opHealth:70, mgmtScore:0,
-    speedDays:30,
+    speedDays:0,
     pendingEvents:[], resolvedEvents:[],
     constPool:shuffle([...EVT_CONST]), opPool:shuffle([...EVT_OP]),
     nextConstEvtMo:Math.round((2+Math.floor(Math.random()*4))/epc.evtMod),
@@ -1439,8 +1453,8 @@ function startSim(){
   document.getElementById('sim-icon').textContent=S.infra.icon;
   document.getElementById('sim-name').textContent=S.infra.name;
   document.getElementById('sim-loc').textContent='📍 '+(selLoc||S.infra.loc)+(epc?' | '+epc.name:'');
-  document.getElementById('speed-slider').value=2;
-  document.getElementById('speed-label').textContent=SPEED_CFG[2].label;
+  document.getElementById('speed-slider').value=0;
+  document.getElementById('speed-label').textContent=SPEED_CFG[0].label;
   document.getElementById('event-dock').style.display='block';
   document.getElementById('event-card-container').style.display='none';
   document.getElementById('phase-overlay').style.display='none';
@@ -1768,6 +1782,23 @@ function fr(label,val,col){
 // ═══════════════════════════════════════════════
 // EVENTS
 // ═══════════════════════════════════════════════
+function showEventFlash(icon, type, title){
+  const el=document.getElementById('event-flash');
+  if(!el) return;
+  el.className=''; // reset
+  document.getElementById('ef-icon').textContent=icon;
+  const typeMap={crisis:'⚠️ 위기',external:'📢 외부변수',opportunity:'🚀 기회'};
+  document.getElementById('ef-type').textContent=typeMap[type]||'이벤트';
+  document.getElementById('ef-title').textContent=title;
+  if(type==='crisis') el.classList.add('ef-crisis');
+  else if(type==='opportunity') el.classList.add('ef-opportunity');
+  el.style.display='block';
+  el.style.animation='none';
+  el.offsetHeight; // reflow
+  el.style.animation='efAnim 3.5s ease forwards';
+  setTimeout(()=>{el.style.display='none';},3500);
+}
+
 function fireEvent(def){
   if(!def) return;
   const mo=S.phase==='construction'?S.constMonthsDone:S.opMonthsDone;
@@ -1775,6 +1806,7 @@ function fireEvent(def){
     ...def, firedMo:mo, firedDate:new Date(S.currentDate),
     firedAt:Date.now(), timeoutAt:Date.now()+120000, resolved:false
   });
+  showEventFlash(def.icon, def.type, def.title);
   renderDock();
   addLog('🔔 이벤트: '+def.title);
 }
