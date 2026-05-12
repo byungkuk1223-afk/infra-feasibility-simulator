@@ -1,0 +1,2245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>해외 인프라 사업타당성 시뮬레이터</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --bg: #080c18; --card: #0f1629; --card2: #141e35; --accent: #00d4ff;
+  --green: #00e676; --red: #ff4444; --yellow: #ffc107; --purple: #bb86fc;
+  --text: #e0e8ff; --text2: #8899bb; --border: #1e2d50;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI','Malgun Gothic',sans-serif; min-height:100vh; overflow-x:hidden; }
+.screen { display:none; min-height:100vh; }
+.screen.active { display:flex; flex-direction:column; }
+#screen-sim.active { display:flex; height:100vh; overflow:hidden; }
+#screen-loc.active { display:flex; height:100vh; overflow:hidden; }
+#map { background:#0a1020; }
+
+/* TITLE */
+#screen-title { align-items:center; justify-content:center; background:radial-gradient(ellipse at 50% 30%,#0a1a3a 0%,#080c18 70%); }
+.title-glow { text-align:center; animation:fadeInUp 1s ease; }
+.title-glow h1 { font-size:2.8rem; font-weight:900; background:linear-gradient(135deg,var(--accent),var(--purple)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:0.5rem; }
+.title-glow .subtitle { color:var(--text2); font-size:1.1rem; margin-bottom:3rem; }
+.title-grid { display:flex; gap:1.5rem; justify-content:center; flex-wrap:wrap; margin-bottom:3rem; }
+.title-badge { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1rem 1.5rem; text-align:center; font-size:0.85rem; color:var(--text2); }
+.title-badge .icon { font-size:1.8rem; display:block; margin-bottom:0.4rem; }
+
+/* BUTTONS */
+.btn-primary { background:linear-gradient(135deg,var(--accent),#0088aa); border:none; color:#000; font-size:1.1rem; font-weight:700; padding:1rem 3rem; border-radius:50px; cursor:pointer; transition:all 0.3s; box-shadow:0 0 30px rgba(0,212,255,0.4); }
+.btn-primary:hover { transform:translateY(-3px); box-shadow:0 0 50px rgba(0,212,255,0.6); }
+.btn-primary:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+.btn-secondary { background:var(--card); border:1px solid var(--border); color:var(--text); font-size:0.95rem; font-weight:600; padding:0.7rem 1.8rem; border-radius:8px; cursor:pointer; transition:all 0.2s; }
+.btn-secondary:hover { border-color:var(--accent); color:var(--accent); }
+
+/* HEADER */
+.screen-header { background:var(--card); border-bottom:1px solid var(--border); padding:1rem 2rem; display:flex; align-items:center; gap:1rem; flex-shrink:0; }
+.screen-header h2 { font-size:1.2rem; font-weight:700; color:var(--accent); }
+.step-indicator { display:flex; gap:0.5rem; margin-left:auto; }
+.step { width:8px; height:8px; border-radius:50%; background:var(--border); }
+.step.done { background:var(--accent); } .step.active { background:var(--green); }
+
+/* INFRA */
+#screen-infra { background:var(--bg); }
+.infra-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1.2rem; padding:1.5rem; max-width:1400px; margin:0 auto; width:100%; }
+.infra-card { background:var(--card); border:2px solid var(--border); border-radius:16px; padding:1.8rem; cursor:pointer; transition:all 0.3s; position:relative; overflow:hidden; }
+.infra-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--accent),var(--purple)); opacity:0; transition:opacity 0.3s; }
+.infra-card:hover { border-color:var(--accent); transform:translateY(-4px); box-shadow:0 8px 30px rgba(0,212,255,0.2); }
+.infra-card:hover::before, .infra-card.selected::before { opacity:1; }
+.infra-card.selected { border-color:var(--accent); box-shadow:0 0 30px rgba(0,212,255,0.3); }
+.infra-icon { font-size:2.5rem; margin-bottom:0.8rem; }
+.infra-name { font-size:1rem; font-weight:700; margin-bottom:0.3rem; }
+.infra-loc { font-size:0.8rem; color:var(--text2); margin-bottom:1rem; }
+.infra-stats { display:grid; grid-template-columns:1fr 1fr; gap:0.4rem; }
+.infra-stat { font-size:0.75rem; color:var(--text2); }
+.infra-stat span { color:var(--accent); font-weight:600; }
+
+/* SETUP */
+#screen-setup { background:var(--bg); }
+.setup-content { display:flex; gap:1.5rem; padding:1.5rem; flex:1; overflow:auto; }
+.setup-form { flex:1; min-width:300px; }
+.setup-preview { width:320px; }
+.card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1.5rem; margin-bottom:1rem; }
+.card h3 { font-size:0.9rem; color:var(--accent); margin-bottom:1rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:0.8rem; margin-bottom:0.8rem; }
+.form-group { display:flex; flex-direction:column; gap:0.3rem; }
+.form-group label { font-size:0.75rem; color:var(--text2); }
+.form-group input { background:var(--card2); border:1px solid var(--border); color:var(--text); font-size:0.9rem; padding:0.5rem 0.8rem; border-radius:6px; outline:none; transition:border-color 0.2s; }
+.form-group input:focus { border-color:var(--accent); }
+.form-group input[type="date"] { color-scheme:dark; }
+.csv-buttons { display:flex; gap:0.8rem; margin-bottom:1rem; }
+.btn-csv { flex:1; padding:0.7rem; border-radius:8px; border:1px solid var(--border); background:var(--card2); color:var(--text); cursor:pointer; font-size:0.85rem; transition:all 0.2s; text-align:center; }
+.btn-csv:hover { border-color:var(--accent); color:var(--accent); }
+.preview-row { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0; border-bottom:1px solid var(--border); }
+.preview-row:last-child { border-bottom:none; }
+.preview-label { font-size:0.8rem; color:var(--text2); }
+.preview-value { font-size:0.9rem; font-weight:600; color:var(--green); }
+.setup-footer { padding:1rem 1.5rem; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:1rem; }
+
+/* SIM TOPBAR */
+.sim-topbar { background:var(--card); border-bottom:1px solid var(--border); padding:0.6rem 1rem; display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap; }
+.sim-project-info { display:flex; align-items:center; gap:0.6rem; }
+.sim-project-icon { font-size:1.4rem; }
+.sim-project-name { font-size:0.85rem; font-weight:700; }
+.sim-date-display { font-size:1rem; font-weight:700; color:var(--accent); white-space:nowrap; }
+.phase-badge { padding:0.25rem 0.8rem; border-radius:20px; font-size:0.75rem; font-weight:700; white-space:nowrap; }
+.phase-badge.construction { background:rgba(255,193,7,0.2); color:var(--yellow); border:1px solid var(--yellow); }
+.phase-badge.operation { background:rgba(0,230,118,0.2); color:var(--green); border:1px solid var(--green); }
+.speed-control { display:flex; align-items:center; gap:0.6rem; margin-left:auto; }
+.speed-label { font-size:0.75rem; color:var(--text2); white-space:nowrap; }
+.speed-slider { -webkit-appearance:none; width:120px; height:4px; border-radius:2px; background:var(--border); outline:none; }
+.speed-slider::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--accent); cursor:pointer; }
+.progress-bar-container { flex:1; max-width:180px; min-width:80px; }
+.progress-bar-label { font-size:0.7rem; color:var(--text2); margin-bottom:2px; }
+.progress-bar { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+.progress-bar-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--green)); border-radius:3px; transition:width 0.3s; }
+
+/* SIM BODY */
+.sim-body { display:flex; flex:1; overflow:hidden; }
+.sim-left { width:210px; background:var(--card); border-right:1px solid var(--border); padding:0.8rem; overflow-y:auto; flex-shrink:0; }
+.sim-center { flex:1; padding:0.8rem; overflow-y:auto; display:flex; flex-direction:column; gap:0.8rem; }
+.sim-right { width:200px; background:var(--card); border-left:1px solid var(--border); padding:0.8rem; overflow-y:auto; flex-shrink:0; }
+.kpi-card { background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:0.7rem; margin-bottom:0.5rem; }
+.kpi-label { font-size:0.68rem; color:var(--text2); margin-bottom:0.15rem; }
+.kpi-value { font-size:0.95rem; font-weight:700; }
+.kpi-value.green { color:var(--green); } .kpi-value.red { color:var(--red); }
+.kpi-value.accent { color:var(--accent); } .kpi-value.yellow { color:var(--yellow); }
+.chart-card { background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:0.8rem; }
+.chart-card h4 { font-size:0.78rem; color:var(--text2); margin-bottom:0.5rem; }
+.chart-wrapper { position:relative; height:150px; }
+.fin-row { display:flex; justify-content:space-between; padding:0.45rem 0; border-bottom:1px solid var(--border); font-size:0.78rem; }
+.fin-row:last-child { border-bottom:none; }
+.fin-row .fin-label { color:var(--text2); }
+.fin-row .fin-val { font-weight:600; }
+
+/* EVENT DOCK */
+#event-dock { position:fixed; bottom:1rem; right:1rem; width:185px; background:var(--card); border:1px solid var(--border); border-radius:12px; z-index:1000; box-shadow:0 8px 30px rgba(0,0,0,0.5); }
+.dock-header { padding:0.5rem 0.8rem; font-size:0.75rem; font-weight:700; color:var(--text2); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; }
+.dock-events { display:flex; gap:0.4rem; padding:0.5rem; flex-wrap:wrap; min-height:48px; align-items:center; }
+.dock-event-btn { width:36px; height:36px; border-radius:8px; border:2px solid var(--green); background:var(--card2); cursor:pointer; position:relative; display:flex; align-items:center; justify-content:center; font-size:0.95rem; transition:all 0.2s; }
+.dock-event-btn:hover { transform:scale(1.1); }
+.dock-event-btn.urgent-yellow { border-color:var(--yellow); }
+.dock-event-btn.urgent-red { border-color:var(--red); animation:pulse-red 0.5s infinite alternate; }
+.dock-timer { position:absolute; bottom:-3px; right:-3px; background:#000; border-radius:3px; font-size:0.5rem; font-weight:700; padding:0 2px; color:var(--text); line-height:1.4; }
+@keyframes pulse-red { from{box-shadow:0 0 4px var(--red);} to{box-shadow:0 0 12px var(--red);} }
+.no-events-msg { font-size:0.72rem; color:var(--text2); width:100%; text-align:center; }
+
+/* EVENT CARD */
+#event-card-container { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:520px; z-index:2001; animation:eventPop 0.35s cubic-bezier(0.175,0.885,0.32,1.275); }
+#event-card-container.minimized { top:auto; left:auto; bottom:1rem; right:210px; transform:none; width:220px; animation:none; }
+#event-card-container.minimized .event-card-body { display:none; }
+@keyframes eventPop { from{transform:translate(-50%,-50%) scale(0.6);opacity:0;} to{transform:translate(-50%,-50%) scale(1);opacity:1;} }
+.event-card { background:var(--card); border:2px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:0 0 60px rgba(0,0,0,0.8), 0 0 30px rgba(0,212,255,0.15); }
+.event-card.type-crisis { border-color:var(--red); box-shadow:0 0 60px rgba(0,0,0,0.8), 0 0 40px rgba(255,68,68,0.3); }
+.event-card.type-opportunity { border-color:var(--green); box-shadow:0 0 60px rgba(0,0,0,0.8), 0 0 40px rgba(0,230,118,0.3); }
+.event-card.type-external { border-color:var(--yellow); box-shadow:0 0 60px rgba(0,0,0,0.8), 0 0 40px rgba(255,193,7,0.25); }
+.event-card-topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.8rem; }
+.event-big-icon { font-size:3.5rem; text-align:center; display:block; margin:0.3rem 0 0.8rem; line-height:1; }
+.event-title { font-size:1.2rem; font-weight:900; margin-bottom:0.5rem; text-align:center; }
+.event-desc { font-size:0.85rem; color:var(--text2); margin-bottom:1rem; line-height:1.6; text-align:center; }
+.btn-minimize { background:none; border:1px solid var(--border); color:var(--text2); cursor:pointer; border-radius:4px; padding:0.15rem 0.6rem; font-size:0.8rem; }
+.btn-minimize:hover { border-color:var(--accent); color:var(--accent); }
+@keyframes slideUp { from{transform:translateY(20px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+.event-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1rem; box-shadow:0 8px 30px rgba(0,0,0,0.6); }
+.event-type-tag { display:inline-block; padding:0.2rem 0.6rem; border-radius:20px; font-size:0.7rem; font-weight:700; margin-bottom:0.5rem; }
+.tag-crisis { background:rgba(255,68,68,0.2); color:var(--red); border:1px solid var(--red); }
+.tag-external { background:rgba(255,193,7,0.2); color:var(--yellow); border:1px solid var(--yellow); }
+.tag-opportunity { background:rgba(0,230,118,0.2); color:var(--green); border:1px solid var(--green); }
+.event-title { font-size:0.92rem; font-weight:700; margin-bottom:0.3rem; }
+.event-desc { font-size:0.76rem; color:var(--text2); margin-bottom:0.7rem; line-height:1.4; }
+.response-bar { margin-bottom:0.7rem; }
+.response-label { font-size:0.73rem; margin-bottom:0.3rem; font-weight:600; }
+.response-label.fast { color:var(--green); } .response-label.normal { color:var(--yellow); } .response-label.slow { color:var(--red); }
+.response-progress { height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+.response-fill { height:100%; border-radius:2px; transition:width 0.1s linear; }
+.fill-green { background:var(--green); } .fill-yellow { background:var(--yellow); } .fill-red { background:var(--red); }
+.event-options { display:flex; flex-direction:column; gap:0.35rem; }
+.event-option-btn { background:var(--card2); border:1px solid var(--border); color:var(--text); padding:0.45rem 0.65rem; border-radius:6px; cursor:pointer; font-size:0.75rem; text-align:left; transition:all 0.2s; line-height:1.3; }
+.event-option-btn:hover { border-color:var(--accent); background:rgba(0,212,255,0.08); }
+.event-close-btn { float:right; background:none; border:none; color:var(--text2); cursor:pointer; font-size:1rem; line-height:1; }
+.event-close-btn:hover { color:var(--red); }
+
+/* PHASE OVERLAY */
+#phase-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:2000; display:flex; align-items:center; justify-content:center; }
+.phase-overlay-content { text-align:center; }
+.phase-overlay-emoji { font-size:4rem; display:block; margin-bottom:1rem; }
+.phase-overlay-title { font-size:2rem; font-weight:900; color:var(--green); }
+
+/* RESULTS */
+#screen-results { background:var(--bg); overflow-y:auto; }
+.results-content { max-width:1000px; margin:0 auto; padding:2rem; }
+.grade-display { text-align:center; padding:2rem; background:var(--card); border-radius:16px; margin-bottom:2rem; }
+.grade-letter { font-size:6rem; font-weight:900; line-height:1; display:block; margin-bottom:0.5rem; }
+.grade-Sp { color:#fff; background:linear-gradient(135deg,#ffd700,#ff6b00); -webkit-background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 0 20px #ffd700); }
+.grade-S  { color:#ffd700; text-shadow:0 0 30px #ffd700; }
+.grade-Ap { color:#00ff88; text-shadow:0 0 25px #00ff88; }
+.grade-A  { color:var(--green); text-shadow:0 0 20px var(--green); }
+.grade-Bp { color:#00d4ff; text-shadow:0 0 20px var(--accent); }
+.grade-B  { color:var(--accent); }
+.grade-C  { color:var(--yellow); }
+.grade-D  { color:var(--red); }
+.grade-subtitle { font-size:1.1rem; color:var(--text2); }
+.kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:2rem; }
+.kpi-result-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1.2rem; text-align:center; }
+.kpi-result-label { font-size:0.78rem; color:var(--text2); margin-bottom:0.5rem; }
+.kpi-result-value { font-size:1.3rem; font-weight:700; }
+.result-chart-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1.5rem; margin-bottom:1.5rem; }
+.result-chart-card h3 { font-size:1rem; font-weight:700; margin-bottom:1rem; }
+.coaching-section { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1.5rem; margin-bottom:1.5rem; }
+.coaching-section h3 { font-size:1rem; font-weight:700; color:var(--accent); margin-bottom:1rem; }
+.coaching-text { font-size:0.85rem; line-height:1.7; color:var(--text2); }
+.coaching-text p { margin-bottom:0.7rem; }
+.coaching-text strong { color:var(--text); }
+.event-table { width:100%; border-collapse:collapse; font-size:0.78rem; }
+.event-table th { background:var(--card2); padding:0.6rem 0.8rem; text-align:left; color:var(--text2); border-bottom:1px solid var(--border); }
+.event-table td { padding:0.6rem 0.8rem; border-bottom:1px solid rgba(30,45,80,0.5); }
+.event-table tr:hover td { background:rgba(0,212,255,0.04); }
+.results-buttons { display:flex; gap:1rem; justify-content:center; margin-top:2rem; }
+
+/* TOAST */
+#toast { position:fixed; top:1rem; left:50%; transform:translateX(-50%); background:var(--card); border:1px solid var(--accent); padding:0.7rem 1.5rem; border-radius:8px; font-size:0.85rem; z-index:3000; opacity:0; transition:opacity 0.3s; pointer-events:none; white-space:nowrap; }
+#toast.show { opacity:1; }
+
+/* ANNUAL REPORT MODAL */
+#annual-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.93);z-index:3500;overflow-y:auto;display:none;}
+.ar-wrap{max-width:860px;margin:2rem auto;padding:1.5rem 1rem;}
+.ar-header{text-align:center;padding:1.2rem 0 1rem;margin-bottom:1.2rem;}
+.ar-header h2{font-size:1.5rem;font-weight:900;color:var(--accent);margin-bottom:0.3rem;}
+.ar-header p{font-size:0.85rem;color:var(--text2);}
+.ar-kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:0.7rem;margin-bottom:1rem;}
+.ar-kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:0.8rem;text-align:center;}
+.ar-kpi .lbl{font-size:0.68rem;color:var(--text2);margin-bottom:0.2rem;}
+.ar-kpi .val{font-size:1rem;font-weight:700;}
+.ar-pirr-card{background:var(--card);border:2px solid var(--accent);border-radius:12px;padding:1rem;margin-bottom:1.2rem;}
+.ar-pirr-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;text-align:center;}
+.ar-pirr-grid .lbl{font-size:0.7rem;color:var(--text2);margin-bottom:0.3rem;}
+.ar-pirr-grid .val{font-size:1.4rem;font-weight:900;}
+.ar-sec{font-size:0.88rem;font-weight:700;color:var(--accent);margin:1.2rem 0 0.7rem;padding-bottom:0.4rem;border-bottom:1px solid var(--border);}
+.ar-hint{font-size:0.75rem;color:var(--text2);margin-bottom:0.8rem;}
+.ar-dec-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0.6rem;margin-bottom:1.2rem;}
+.ar-dec-btn{background:var(--card2);border:2px solid var(--border);color:var(--text);padding:0.75rem 1rem;border-radius:10px;cursor:pointer;text-align:left;transition:all 0.2s;line-height:1.4;width:100%;}
+.ar-dec-btn:hover{border-color:var(--accent);background:rgba(0,212,255,0.05);}
+.ar-dec-btn.selected{border-color:var(--green);background:rgba(0,230,118,0.07);box-shadow:0 0 10px rgba(0,230,118,0.15);}
+.ar-dec-btn .dc{font-size:0.65rem;color:var(--text2);margin-bottom:0.1rem;}
+.ar-dec-btn .dn{font-size:0.85rem;font-weight:700;margin-bottom:0.15rem;}
+.ar-dec-btn .dd{font-size:0.7rem;color:var(--text2);}
+.ar-bottom{display:flex;gap:1rem;justify-content:center;padding:1.5rem 0 2rem;}
+.ar-log{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:0.8rem;margin-bottom:1rem;font-size:0.78rem;color:var(--text2);min-height:40px;}
+@media(max-width:600px){.ar-dec-grid{grid-template-columns:1fr;}.ar-kpi-row{grid-template-columns:1fr 1fr;}.ar-pirr-grid{grid-template-columns:1fr;gap:0.5rem;}}
+
+/* CONST VISUAL */
+.cv-stages{display:flex;gap:0;align-items:flex-end;margin-bottom:0.8rem;overflow:hidden;border-radius:8px;}
+.cv-stage{flex:1;text-align:center;padding:0.4rem 0.2rem;font-size:0.62rem;color:var(--text2);border-right:1px solid var(--border);transition:all 0.5s;}
+.cv-stage:last-child{border-right:none;}
+.cv-stage.done{background:rgba(0,230,118,0.12);color:var(--green);}
+.cv-stage.active{background:rgba(0,212,255,0.15);color:var(--accent);animation:cvPulse 1.5s infinite alternate;}
+.cv-stage .cv-icon{font-size:1.4rem;display:block;margin-bottom:0.2rem;}
+.cv-art{font-size:0.9rem;line-height:1.6;text-align:center;padding:0.4rem;background:var(--card2);border-radius:6px;font-family:monospace;letter-spacing:2px;}
+@keyframes cvPulse{from{background:rgba(0,212,255,0.1);}to{background:rgba(0,212,255,0.25);}}
+/* LOG */
+#event-log { background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:0.7rem; max-height:120px; overflow-y:auto; font-size:0.72rem; color:var(--text2); }
+
+/* LOC */
+.loc-content{padding:1.5rem 2rem;max-width:1000px;margin:0 auto;width:100%;}
+.loc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;}
+.loc-card{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:1rem;cursor:pointer;transition:all 0.2s;text-align:center;}
+.loc-card:hover,.loc-card.selected{border-color:var(--accent);box-shadow:0 0 20px rgba(0,212,255,0.2);}
+.loc-card .loc-emoji{font-size:2rem;display:block;margin-bottom:0.4rem;}
+.loc-card .loc-name{font-size:0.85rem;font-weight:700;}
+.sub-btns{display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem;}
+.sub-btn{background:var(--card2);border:1px solid var(--border);color:var(--text2);padding:0.35rem 0.9rem;border-radius:20px;cursor:pointer;font-size:0.8rem;transition:all 0.2s;}
+.sub-btn:hover,.sub-btn.selected{border-color:var(--accent);color:var(--accent);}
+.loc-custom{display:flex;gap:0.8rem;align-items:center;margin-bottom:1rem;}
+.loc-custom input{flex:1;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:0.6rem 1rem;border-radius:8px;font-size:0.9rem;outline:none;}
+.loc-custom input:focus{border-color:var(--accent);}
+.loc-selected-display{background:var(--card);border:1px solid var(--accent);border-radius:8px;padding:0.6rem 1rem;font-size:0.9rem;color:var(--accent);font-weight:700;}
+/* EPC */
+.epc-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;padding:1.5rem;max-width:1200px;margin:0 auto;width:100%;}
+.epc-card{background:var(--card);border:2px solid var(--border);border-radius:14px;padding:1.2rem;cursor:pointer;transition:all 0.2s;position:relative;}
+.epc-card:hover,.epc-card.selected{border-color:var(--accent);box-shadow:0 0 25px rgba(0,212,255,0.25);}
+.epc-card .epc-icon{font-size:2rem;display:block;margin-bottom:0.5rem;}
+.epc-card .epc-name{font-size:0.88rem;font-weight:700;margin-bottom:0.2rem;}
+.epc-card .epc-sub{font-size:0.72rem;color:var(--text2);margin-bottom:0.8rem;}
+.epc-stat{font-size:0.72rem;margin-bottom:0.2rem;color:var(--text2);}
+.epc-stat span.up{color:var(--green);} .epc-stat span.dn{color:var(--red);}
+.epc-pros{margin-top:0.6rem;font-size:0.7rem;color:var(--green);}
+.epc-cons{margin-top:0.2rem;font-size:0.7rem;color:var(--red);}
+@keyframes fadeInUp { from{transform:translateY(30px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+
+@media(max-width:900px) {
+  .infra-grid { grid-template-columns:repeat(2,1fr); }
+  .kpi-grid { grid-template-columns:repeat(2,1fr); }
+  .sim-left,.sim-right { display:none; }
+  .setup-preview { display:none; }
+}
+@media(max-width:600px) {
+  .infra-grid { grid-template-columns:1fr; }
+  .title-glow h1 { font-size:1.8rem; }
+}
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- SCREEN 1: TITLE -->
+<div id="screen-title" class="screen active">
+  <div class="title-glow">
+    <h1>🌐 해외 인프라 사업타당성 시뮬레이터</h1>
+    <p class="subtitle">Overseas Infrastructure &amp; Plant Project Financial Feasibility Simulation</p>
+    <div class="title-grid">
+      <div class="title-badge"><span class="icon">📊</span>재무모델 자동계산</div>
+      <div class="title-badge"><span class="icon">⚡</span>돌발이벤트 대응</div>
+      <div class="title-badge"><span class="icon">🏆</span>사업성 등급 평가</div>
+      <div class="title-badge"><span class="icon">🤖</span>AI 재무 코칭</div>
+    </div>
+    <div style="margin-bottom:1.5rem;display:flex;align-items:center;gap:0.8rem;justify-content:center;">
+      <span style="font-size:0.9rem;color:var(--text2);">👤 PM 이름</span>
+      <input id="pm-name" type="text" placeholder="이름 입력" maxlength="20"
+        style="background:var(--card2);border:1px solid var(--border);color:var(--text);padding:0.5rem 1rem;border-radius:8px;font-size:0.9rem;outline:none;width:180px;">
+    </div>
+    <button class="btn-primary" onclick="startAspm()">시뮬레이션 시작 →</button>
+  </div>
+</div>
+
+<!-- SCREEN 1.5: LOCATION -->
+<div id="screen-loc" class="screen">
+  <div class="screen-header">
+    <button class="btn-secondary" onclick="goTo('title')" style="padding:0.4rem 1rem;font-size:0.8rem;">← 뒤로</button>
+    <h2>📍 사업 지역 선택</h2>
+    <div class="step-indicator"><div class="step done"></div><div class="step active"></div><div class="step"></div><div class="step"></div><div class="step"></div><div class="step"></div></div>
+  </div>
+  <div style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+    <div style="padding:0.8rem 1rem;display:flex;gap:0.8rem;align-items:center;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <input type="text" id="loc-search" placeholder="🔍 국가·도시·지역 검색 (예: 호주, Queensland, 사우디...)" oninput="filterLocSearch(this.value)"
+        style="flex:1;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:0.6rem 1rem;border-radius:8px;font-size:0.9rem;outline:none;">
+      <div id="loc-selected-display" style="display:none;background:var(--card);border:1px solid var(--accent);border-radius:8px;padding:0.5rem 1rem;font-size:0.9rem;color:var(--accent);font-weight:700;white-space:nowrap;"></div>
+    </div>
+    <div id="loc-search-results" style="display:none;position:absolute;top:120px;left:1rem;z-index:500;background:var(--card);border:1px solid var(--accent);border-radius:8px;max-height:200px;overflow-y:auto;min-width:280px;box-shadow:0 8px 30px rgba(0,0,0,0.5);"></div>
+    <div id="map" style="flex:1;"></div>
+    <div style="padding:0.5rem 1rem;font-size:0.75rem;color:var(--text2);flex-shrink:0;">💡 지도를 클릭하거나 위 검색창에서 지역을 입력하세요</div>
+  </div>
+  <div style="padding:0.8rem 1rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+    <button class="btn-primary" id="btn-loc-next" onclick="goTo('infra')" disabled>인프라 선택 →</button>
+  </div>
+</div>
+
+<!-- SCREEN 2: INFRA SELECTION -->
+<div id="screen-infra" class="screen">
+  <div class="screen-header">
+    <button class="btn-secondary" onclick="goTo('loc')" style="padding:0.4rem 1rem;font-size:0.8rem;">← 뒤로</button>
+    <h2>인프라 유형 선택</h2>
+    <div class="step-indicator">
+      <div class="step done"></div><div class="step active"></div><div class="step"></div><div class="step"></div><div class="step"></div>
+    </div>
+  </div>
+  <div class="infra-grid" id="infra-grid"></div>
+  <div id="custom-infra-row" style="display:none;padding:0.8rem 2rem;gap:0.8rem;border-top:1px solid var(--border);flex-wrap:wrap;align-items:center;">
+    <span style="font-size:0.8rem;color:var(--text2);white-space:nowrap;">사업명</span>
+    <input id="ci-name" type="text" placeholder="예: 폐기물 에너지화 플랜트" style="background:var(--card2);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.7rem;border-radius:6px;font-size:0.82rem;width:200px;" oninput="updateCustomInfra()">
+    <span style="font-size:0.8rem;color:var(--text2);">공사(개월)</span>
+    <input id="ci-const" type="number" value="24" style="background:var(--card2);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.7rem;border-radius:6px;font-size:0.82rem;width:70px;" oninput="updateCustomInfra()">
+    <span style="font-size:0.8rem;color:var(--text2);">총사업비(만원)</span>
+    <input id="ci-capex" type="number" value="100000" style="background:var(--card2);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.7rem;border-radius:6px;font-size:0.82rem;width:110px;" oninput="updateCustomInfra()">
+    <span style="font-size:0.8rem;color:var(--text2);">월매출(만원)</span>
+    <input id="ci-rev" type="number" value="10000" style="background:var(--card2);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.7rem;border-radius:6px;font-size:0.82rem;width:100px;" oninput="updateCustomInfra()">
+  </div>
+  <div style="padding:0.8rem 2rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+    <button class="btn-primary" id="btn-infra-next" onclick="goToSetup()" disabled>재무모델 설정 →</button>
+  </div>
+</div>
+
+<!-- SCREEN 3: FINANCIAL SETUP -->
+<div id="screen-setup" class="screen">
+  <div class="screen-header">
+    <button class="btn-secondary" onclick="goTo('infra')" style="padding:0.4rem 1rem;font-size:0.8rem;">← 뒤로</button>
+    <h2>재무모델 설정</h2>
+    <div class="step-indicator">
+      <div class="step done"></div><div class="step done"></div><div class="step active"></div><div class="step"></div><div class="step"></div>
+    </div>
+  </div>
+
+  <!-- 목표 pIRR 최상단 입력 -->
+  <div style="background:linear-gradient(135deg,#0a1428,#0f1e3a);border-bottom:2px solid var(--accent);padding:1.2rem 2rem;flex-shrink:0;">
+    <div style="max-width:700px;margin:0 auto;text-align:center;">
+      <div style="font-size:0.72rem;color:var(--text2);letter-spacing:0.08em;font-weight:700;margin-bottom:0.6rem;">🎯 목표 프로젝트 IRR (pIRR) — 이 수치를 기준으로 재무모델이 자동 구성됩니다</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:0.5rem;margin-bottom:0.5rem;">
+        <input type="number" id="f_targetPIRR" step="0.1" placeholder="—"
+          oninput="onPIRRInput()"
+          style="font-size:3rem;font-weight:900;color:var(--accent);background:transparent;border:none;border-bottom:3px solid var(--accent);width:130px;text-align:center;outline:none;padding:0 0.2rem;line-height:1;">
+        <span style="font-size:2.2rem;color:var(--accent);font-weight:900;line-height:1;">%</span>
+      </div>
+      <div id="pirr-compare" style="font-size:0.82rem;min-height:1.3em;margin-bottom:0.4rem;"></div>
+      <div style="display:flex;gap:1.5rem;justify-content:center;align-items:center;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.78rem;color:var(--text2);">
+          <span>IRR 기준 기간</span>
+          <input type="number" id="f_irrYears" placeholder="대출기간" oninput="onPIRRInput()"
+            style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);padding:0.3rem 0.5rem;border-radius:6px;font-size:0.82rem;width:70px;text-align:center;outline:none;">
+          <span>년</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.78rem;color:var(--text2);">
+          <span>재무보고 주기</span>
+          <select id="f_reportInterval" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);padding:0.3rem 0.5rem;border-radius:6px;font-size:0.82rem;outline:none;">
+            <option value="12">1년마다</option>
+            <option value="24">2년마다</option>
+            <option value="36">3년마다</option>
+            <option value="0">없음</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:0.4rem;">
+          <div class="btn-csv" onclick="downloadCSV()" style="padding:0.3rem 0.8rem;font-size:0.75rem;">⬇ CSV</div>
+          <label class="btn-csv" style="cursor:pointer;padding:0.3rem 0.8rem;font-size:0.75rem;">⬆ CSV 업로드<input type="file" accept=".csv" style="display:none;" onchange="uploadCSV(event)"></label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="setup-content">
+    <div class="setup-form">
+      <div class="card">
+        <h3>💰 사업비 구조</h3>
+        <div class="form-row">
+          <div class="form-group"><label>총 사업비 (만원)</label><input type="number" id="f_capex" oninput="updatePreview()"></div>
+          <div class="form-group"><label>자기자본 비율 (%)</label><input type="number" id="f_equity" oninput="updatePreview()"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>대출금리 (%)</label><input type="number" id="f_loanRate" step="0.1" oninput="updatePreview()"></div>
+          <div class="form-group"><label>대출기간 (년)</label><input type="number" id="f_loanYears" oninput="updatePreview()"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>🏗️ 공사 및 운영 일정</h3>
+        <div class="form-row">
+          <div class="form-group"><label>공사 기간 (개월)</label><input type="number" id="f_constMonths" oninput="updatePreview()"></div>
+          <div class="form-group"><label>시뮬레이션 운영 기간 (개월)</label><input type="number" id="f_opMonths" oninput="updatePreview()"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="grid-column:1/-1;"><label>사업 시작일</label><input type="date" id="f_startDate" oninput="updatePreview()"></div>
+        </div>
+      </div>
+      <div class="card" style="border-color:rgba(0,212,255,0.25);">
+        <h3>📈 수익 및 비용 <span style="font-size:0.72rem;color:var(--text2);font-weight:400;">— pIRR 입력 시 자동계산, 직접 수정 가능</span></h3>
+        <div class="form-row">
+          <div class="form-group"><label>월 매출 (만원)</label><input type="number" id="f_revenue" oninput="updatePreview()" style="border-color:rgba(0,212,255,0.4);"></div>
+          <div class="form-group"><label>월 운영비 (만원)</label><input type="number" id="f_opex" oninput="updatePreview()"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="grid-column:1/-1;"><label>할인율 (%)</label><input type="number" id="f_discount" step="0.1" oninput="updatePreview()"></div>
+        </div>
+      </div>
+    </div>
+    <div class="setup-preview">
+      <div class="card" style="position:sticky;top:0;">
+        <h3>📋 재무모델 미리보기</h3>
+        <!-- pIRR 달성 상태 (핵심 표시) -->
+        <div id="prev-pirr-block" style="background:var(--card2);border-radius:10px;padding:0.9rem;margin-bottom:0.8rem;text-align:center;border:1px solid var(--border);">
+          <div style="font-size:0.68rem;color:var(--text2);margin-bottom:0.3rem;">프로젝트 IRR (pIRR)</div>
+          <div style="font-size:2rem;font-weight:900;line-height:1.1;" id="prev-irr">-</div>
+          <div id="prev-pirr-vs" style="font-size:0.75rem;margin-top:0.3rem;color:var(--text2);"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.8rem;">
+          <div style="background:var(--card2);border-radius:8px;padding:0.6rem;text-align:center;">
+            <div style="font-size:0.62rem;color:var(--text2);">자기자본 IRR</div>
+            <div style="font-size:1rem;font-weight:700;" id="prev-eirr">-</div>
+          </div>
+          <div style="background:var(--card2);border-radius:8px;padding:0.6rem;text-align:center;">
+            <div style="font-size:0.62rem;color:var(--text2);">NPV</div>
+            <div style="font-size:0.85rem;font-weight:700;" id="prev-npv">-</div>
+          </div>
+        </div>
+        <div class="preview-row"><span class="preview-label">월 매출</span><span class="preview-value" id="prev-rev">-</span></div>
+        <div class="preview-row"><span class="preview-label">월 OPEX</span><span class="preview-value" id="prev-opex-val" style="color:var(--red)">-</span></div>
+        <div class="preview-row"><span class="preview-label">월 EBITDA</span><span class="preview-value" id="prev-ebitda">-</span></div>
+        <div class="preview-row"><span class="preview-label">월 원리금상환</span><span class="preview-value" id="prev-ds" style="color:var(--yellow)">-</span></div>
+        <div class="preview-row"><span class="preview-label">월 순현금</span><span class="preview-value" id="prev-ncf">-</span></div>
+        <div class="preview-row" style="border-top:1px solid var(--border);margin-top:0.3rem;padding-top:0.5rem;"><span class="preview-label">DSCR</span><span class="preview-value" id="prev-dscr">-</span></div>
+        <div class="preview-row"><span class="preview-label">BEP 예상</span><span class="preview-value" id="prev-bep">-</span></div>
+        <div class="preview-row"><span class="preview-label">총 대출금</span><span class="preview-value" id="prev-loan">-</span></div>
+        <div class="preview-row"><span class="preview-label">자기자본 투입</span><span class="preview-value" id="prev-equity-val">-</span></div>
+        <div class="preview-row"><span class="preview-label">공사 / 전체 기간</span><span class="preview-value" id="prev-const">-</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="setup-footer">
+    <button class="btn-primary" onclick="goToEPC()">EPC 선택 →</button>
+  </div>
+</div>
+
+<!-- SCREEN EPC -->
+<div id="screen-epc" class="screen">
+  <div class="screen-header">
+    <button class="btn-secondary" onclick="goTo('setup')" style="padding:0.4rem 1rem;font-size:0.8rem;">← 뒤로</button>
+    <h2>🏗️ EPC 시공사 선택</h2>
+    <div class="step-indicator"><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step active"></div><div class="step"></div></div>
+  </div>
+  <div class="epc-grid" id="epc-grid"></div>
+  <div style="padding:1rem 2rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+    <button class="btn-primary" id="btn-epc-next" onclick="startSim()" disabled>시뮬레이션 시작 🚀</button>
+  </div>
+</div>
+
+<!-- ANNUAL REPORT MODAL -->
+<div id="annual-modal">
+  <div class="ar-wrap" id="annual-modal-body"></div>
+</div>
+
+<!-- SCREEN 4: SIMULATION -->
+<div id="screen-sim" class="screen">
+  <div class="sim-topbar">
+    <div class="sim-project-info">
+      <span class="sim-project-icon" id="sim-icon">🏗️</span>
+      <div>
+        <div class="sim-project-name" id="sim-name">프로젝트</div>
+        <div style="font-size:0.68rem;color:var(--text2);" id="sim-loc">위치</div>
+      </div>
+    </div>
+    <div class="sim-date-display" id="sim-date">-</div>
+    <span class="phase-badge construction" id="phase-badge">🏗️ 공사중</span>
+    <div class="progress-bar-container">
+      <div class="progress-bar-label" id="prog-label">공정률 0%</div>
+      <div class="progress-bar"><div class="progress-bar-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+    <div class="speed-control">
+      <span class="speed-label" id="speed-label">🏃 30일/틱</span>
+      <input type="range" class="speed-slider" id="speed-slider" min="0" max="5" value="3" oninput="setSpeed(this.value)">
+    </div>
+    <button class="btn-secondary" style="font-size:0.75rem;padding:0.3rem 0.8rem;white-space:nowrap;" onclick="endSim()">결과 보기 →</button>
+  </div>
+  <div class="sim-body">
+    <div class="sim-left" id="kpi-left">
+      <div style="font-size:0.78rem;font-weight:700;color:var(--accent);margin-bottom:0.6rem;">📊 핵심 지표</div>
+    </div>
+    <div class="sim-center">
+      <div class="chart-card" id="const-visual-card">
+        <h4 id="cv-title">🏗️ 건설 공정 현황</h4>
+        <div class="cv-stages" id="cv-stages"></div>
+        <div class="cv-art" id="cv-art"></div>
+      </div>
+      <div class="chart-card">
+        <h4 id="chart1-title">📈 S커브 공정률 (계획 vs 실제)</h4>
+        <div class="chart-wrapper"><canvas id="chart-main"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h4 id="chart2-title">💰 월별 CapEx 집행액</h4>
+        <div class="chart-wrapper"><canvas id="chart-sec"></canvas></div>
+      </div>
+      <div id="event-log"><div style="font-size:0.72rem;font-weight:700;color:var(--text2);margin-bottom:0.4rem;">📋 이벤트 로그</div><div id="log-list"></div></div>
+    </div>
+    <div class="sim-right">
+      <div style="font-size:0.78rem;font-weight:700;color:var(--accent);margin-bottom:0.6rem;">💹 재무 지표</div>
+      <div id="fin-panel"></div>
+    </div>
+  </div>
+</div>
+
+<!-- EVENT DOCK -->
+<div id="event-dock" style="display:none;">
+  <div class="dock-header"><span>📋 돌발상황</span><span id="dock-cnt" style="color:var(--accent);">0</span></div>
+  <div class="dock-events" id="dock-events"><div class="no-events-msg">이벤트 없음</div></div>
+</div>
+
+<!-- EVENT CARD -->
+<div id="event-card-container" style="display:none;"></div>
+
+<!-- PHASE OVERLAY -->
+<div id="phase-overlay" style="display:none;">
+  <div class="phase-overlay-content">
+    <span class="phase-overlay-emoji">🎉</span>
+    <div class="phase-overlay-title">준공 완료! 운영 단계 시작</div>
+    <div style="font-size:1rem;color:var(--text2);margin-top:0.5rem;">이제 수익 창출 단계입니다</div>
+  </div>
+</div>
+
+<!-- SCREEN 5: RESULTS -->
+<div id="screen-results" class="screen">
+  <div class="screen-header" style="position:sticky;top:0;z-index:10;">
+    <h2>📊 시뮬레이션 결과</h2>
+    <div class="step-indicator">
+      <div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step done"></div>
+    </div>
+  </div>
+  <div class="results-content">
+    <div class="grade-display">
+      <span class="grade-letter grade-B" id="result-grade">B</span>
+      <div class="grade-subtitle" id="result-grade-desc">사업성 양호</div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-result-card"><div class="kpi-result-label">순현재가치 (NPV)</div><div class="kpi-result-value" id="r-npv">-</div></div>
+      <div class="kpi-result-card"><div class="kpi-result-label">내부수익률 (IRR)</div><div class="kpi-result-value" id="r-irr">-</div></div>
+      <div class="kpi-result-card"><div class="kpi-result-label">평균 DSCR</div><div class="kpi-result-value" id="r-dscr">-</div></div>
+      <div class="kpi-result-card"><div class="kpi-result-label">최종 현금잔액</div><div class="kpi-result-value" id="r-cash">-</div></div>
+    </div>
+    <div class="result-chart-card">
+      <h3>📈 월별 현금흐름 (최근 24개월)</h3>
+      <div style="position:relative;height:250px;"><canvas id="result-chart"></canvas></div>
+    </div>
+    <div class="coaching-section">
+      <h3>🤖 AI 재무 코칭</h3>
+      <div class="coaching-text" id="coaching-text"></div>
+    </div>
+    <div class="result-chart-card">
+      <h3>⚡ 이벤트 대응 기록</h3>
+      <table class="event-table">
+        <thead><tr><th>월</th><th>이벤트</th><th>선택 옵션</th><th>현금 영향</th><th>처리</th></tr></thead>
+        <tbody id="evt-table-body"></tbody>
+      </table>
+    </div>
+    <div class="result-chart-card">
+      <h3>🏗️ 공사 요약</h3>
+      <div id="const-summary"></div>
+    </div>
+    <div class="result-chart-card" id="leaderboard-section">
+      <h3>🏆 PM 순위표</h3>
+      <div id="leaderboard-list"></div>
+    </div>
+    <div class="results-buttons">
+      <button class="btn-secondary" onclick="goTo('title')">처음으로</button>
+      <button class="btn-secondary" onclick="goTo('infra')">인프라 변경</button>
+      <button class="btn-primary" onclick="startSim()">다시 시작</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════
+const INFRAS = [
+  {id:'coal',icon:'🏭',name:'석탄화력발전소',
+   capacity:'500 MW', fuel:'유연탄 ~150만톤/년', factor:'75~80%',
+   feature:'석탄 1톤 → 약 2.5 MWh 발전 (열효율 35%)',
+   permit:'높음 (환경영향평가 필수)', constDiff:'중',
+   constructionMonths:48,operationMonths:24,capex:700000,opex:25000,revenue:45000,equity:0.30,loanRate:0.070,loanYears:20,discount:0.11},
+  {id:'nuclear',icon:'⚛️',name:'원자력발전소 (APR-1400)',
+   capacity:'1,400 MW', fuel:'UO₂ 핵연료 ~25톤/년', factor:'90%',
+   feature:'핵연료 1kg → 약 45,000 kWh (석탄 대비 3만배 에너지밀도)',
+   permit:'최고 (원자력위원회 승인)', constDiff:'매우 높음',
+   constructionMonths:96,operationMonths:12,capex:8000000,opex:80000,revenue:350000,equity:0.35,loanRate:0.050,loanYears:30,discount:0.09},
+  {id:'hydro',icon:'🌊',name:'수력발전소 (댐형)',
+   capacity:'500 MW', fuel:'수자원 (무연료)', factor:'45~55%',
+   feature:'낙차 100m · 유량 600㎥/s 기준, 홍수기↑ 건기↓ 계절편차',
+   permit:'높음 (환경·이주민 이슈)', constDiff:'높음',
+   constructionMonths:60,operationMonths:24,capex:900000,opex:6000,revenue:30000,equity:0.30,loanRate:0.052,loanYears:30,discount:0.08},
+  {id:'solar',icon:'☀️',name:'대규모 태양광 (유틸리티)',
+   capacity:'300 MW', fuel:'태양광 (무연료)', factor:'20~28%',
+   feature:'일조량 5.5 kWh/㎡/일 기준, 연 460 GWh 생산',
+   permit:'중', constDiff:'낮음',
+   constructionMonths:18,operationMonths:24,capex:120000,opex:3000,revenue:9000,equity:0.30,loanRate:0.048,loanYears:20,discount:0.08},
+  {id:'offshore_wind',icon:'🌬️',name:'해상풍력단지',
+   capacity:'500 MW', fuel:'풍력 (무연료)', factor:'40~48%',
+   feature:'평균풍속 8~10 m/s, 연 1,750 GWh 생산. 해저케이블 필수',
+   permit:'높음 (해양환경·어업권)', constDiff:'높음',
+   constructionMonths:36,operationMonths:24,capex:700000,opex:12000,revenue:45000,equity:0.30,loanRate:0.050,loanYears:20,discount:0.08},
+  {id:'lng',icon:'⛽',name:'LNG 수입터미널 (FSRU)',
+   capacity:'저장 20만㎥, 기화 500 MMSCFD', fuel:'LNG (천연가스)', factor:'85%',
+   feature:'LNG 1톤 → 천연가스 약 1,360㎥, BOG 처리·냉열 활용 여부가 수익성 좌우',
+   permit:'높음 (항만·해양)', constDiff:'중~높음',
+   constructionMonths:36,operationMonths:18,capex:600000,opex:20000,revenue:65000,equity:0.35,loanRate:0.062,loanYears:20,discount:0.10},
+  {id:'green_nh3',icon:'🟢',name:'그린암모니아 플랜트',
+   capacity:'30만톤 NH₃/년', fuel:'재생전력 + 물 (전기분해)', factor:'90%',
+   feature:'NH₃ 1톤 생산 = 전력 10 MWh + 물 1.7톤. 수전해 효율이 핵심 변수',
+   permit:'중', constDiff:'높음',
+   constructionMonths:42,operationMonths:18,capex:900000,opex:30000,revenue:90000,equity:0.35,loanRate:0.055,loanYears:20,discount:0.10},
+  {id:'blue_nh3',icon:'🔵',name:'블루암모니아 플랜트',
+   capacity:'30만톤 NH₃/년', fuel:'천연가스 + CCS', factor:'90%',
+   feature:'가스 0.7톤/톤NH₃, CO₂ 포집률 90%↑ 필요. CCS 비용이 경제성 결정',
+   permit:'중~높음', constDiff:'중',
+   constructionMonths:36,operationMonths:18,capex:650000,opex:25000,revenue:75000,equity:0.30,loanRate:0.058,loanYears:20,discount:0.10},
+  {id:'hydrogen',icon:'💠',name:'수소 생산·액화 (그린H₂)',
+   capacity:'5만톤 H₂/년', fuel:'재생전력 + 물', factor:'90%',
+   feature:'H₂ 1kg = 전력 55 kWh 소비. 액화 에너지 손실 30%, -253℃ 냉각 필요',
+   permit:'중', constDiff:'높음',
+   constructionMonths:30,operationMonths:18,capex:500000,opex:18000,revenue:55000,equity:0.30,loanRate:0.058,loanYears:18,discount:0.10},
+  {id:'saf',icon:'🛢️',name:'SAF 지속가능항공유 공장',
+   capacity:'10만톤 SAF/년', fuel:'폐식용유·팜유 부산물 (HEFA)', factor:'90%',
+   feature:'원료 1톤 → SAF 0.75톤. 항공사 장기 offtake 계약이 수익성 핵심',
+   permit:'중', constDiff:'중',
+   constructionMonths:30,operationMonths:18,capex:200000,opex:10000,revenue:22000,equity:0.30,loanRate:0.058,loanYears:15,discount:0.10},
+  {id:'water',icon:'💧',name:'해수담수화 플랜트 (RO)',
+   capacity:'20만㎥/일', fuel:'전력 (RO 펌핑)', factor:'90%',
+   feature:'전력 3~4 kWh/㎥. 농축수 처리·분리막 교체 주기(5~7년)가 OPEX 좌우',
+   permit:'중~높음', constDiff:'중',
+   constructionMonths:24,operationMonths:18,capex:80000,opex:4500,revenue:8500,equity:0.35,loanRate:0.062,loanYears:15,discount:0.10},
+  {id:'hospital',icon:'🏥',name:'PPP 종합병원',
+   capacity:'800 병상', fuel:'전력·가스 (운영)', factor:'75%',
+   feature:'병상당 건설비 $0.5~1M. 정부 서비스 요금(타리프) 구조가 수익 핵심',
+   permit:'높음 (의료법·토지)', constDiff:'중',
+   constructionMonths:30,operationMonths:18,capex:130000,opex:6000,revenue:11000,equity:0.25,loanRate:0.053,loanYears:20,discount:0.09},
+  {id:'road',icon:'🛣️',name:'유료도로·교량 (BTO)',
+   capacity:'4차선 120km', fuel:'없음', factor:'—',
+   feature:'일교통량 2만대 기준, 통행료 수입. BTO 방식으로 준공 즉시 운영이관',
+   permit:'매우 높음 (토지수용)', constDiff:'높음',
+   constructionMonths:42,operationMonths:18,capex:450000,opex:5000,revenue:15000,equity:0.30,loanRate:0.056,loanYears:25,discount:0.09},
+  {id:'port',icon:'🚢',name:'항만·컨테이너터미널',
+   capacity:'연 100만 TEU', fuel:'크레인 전력', factor:'70%',
+   feature:'TEU당 처리비 $80~120. 배후 물류단지 연계가 수익성에 큰 영향',
+   permit:'높음 (해양·환경)', constDiff:'중',
+   constructionMonths:36,operationMonths:18,capex:350000,opex:12000,revenue:25000,equity:0.30,loanRate:0.060,loanYears:25,discount:0.09},
+  {id:'petrochem',icon:'🧪',name:'석유화학 플랜트 (NCC)',
+   capacity:'에틸렌 100만톤/년', fuel:'나프타·에탄 원료', factor:'92%',
+   feature:'원료 나프타 3톤 → 에틸렌 1톤. 납사가격·에틸렌 스프레드가 수익 결정',
+   permit:'높음', constDiff:'매우 높음',
+   constructionMonths:54,operationMonths:12,capex:1200000,opex:50000,revenue:130000,equity:0.35,loanRate:0.065,loanYears:20,discount:0.11},
+  {id:'bess',icon:'🔋',name:'BESS (대용량 배터리저장)',
+   capacity:'500 MW / 2,000 MWh (4h)', fuel:'전력망 (충방전)', factor:'충방전 효율 88~92%',
+   feature:'전력 차익거래·주파수조정·피크절감. 사이클 수명 4,000~6,000회, 10~15년 후 배터리 교체비 발생',
+   permit:'낮음~중', constDiff:'낮음',
+   constructionMonths:14,operationMonths:24,capex:280000,opex:5000,revenue:22000,equity:0.30,loanRate:0.055,loanYears:12,discount:0.09},
+  {id:'bess_solar',icon:'☀️🔋',name:'태양광+BESS 하이브리드',
+   capacity:'300 MW PV + 150 MW/600 MWh BESS', fuel:'태양광 (무연료)', factor:'PV 24% / BESS 야간방전',
+   feature:'주간 잉여발전 저장 → 야간·피크 방전. 단일 계통연계로 접속비용 절감. 토지 효율 최우선',
+   permit:'중', constDiff:'낮음~중',
+   constructionMonths:18,operationMonths:24,capex:200000,opex:4000,revenue:18000,equity:0.30,loanRate:0.050,loanYears:18,discount:0.09},
+  {id:'ccgt',icon:'🔥',name:'가스복합화력 (CCGT)',
+   capacity:'900 MW', fuel:'천연가스 (LNG)', factor:'85~90%',
+   feature:'가스터빈+증기터빈 복합, 열효율 58~62%. 연료비가 LCOE의 70%+. 가스가격 헤징이 핵심',
+   permit:'중', constDiff:'중',
+   constructionMonths:36,operationMonths:24,capex:550000,opex:20000,revenue:60000,equity:0.30,loanRate:0.060,loanYears:20,discount:0.10},
+  {id:'onshore_wind',icon:'💨',name:'육상풍력단지',
+   capacity:'300 MW', fuel:'풍력 (무연료)', factor:'30~40%',
+   feature:'평균풍속 7 m/s 기준 연 790 GWh 생산. 터빈간격·소음규제·조류충돌이 인허가 핵심 변수',
+   permit:'중~높음', constDiff:'중',
+   constructionMonths:24,operationMonths:24,capex:320000,opex:6000,revenue:22000,equity:0.30,loanRate:0.050,loanYears:20,discount:0.08},
+  {id:'biomass',icon:'🌿',name:'바이오매스 발전소',
+   capacity:'100 MW', fuel:'목재펠릿·농업부산물', factor:'80~85%',
+   feature:'연료 30만톤/년 필요. 연료 수급 안정성이 최대 리스크. 탄소중립 인정 여부가 수익성 좌우',
+   permit:'중', constDiff:'중',
+   constructionMonths:30,operationMonths:24,capex:220000,opex:12000,revenue:18000,equity:0.30,loanRate:0.060,loanYears:20,discount:0.10},
+  {id:'geothermal',icon:'🌋',name:'지열 발전소',
+   capacity:'50 MW', fuel:'지열 (무연료)', factor:'85~95%',
+   feature:'탐사·시추 비용이 총사업비 30%+. 성공률 60~70%. 성공시 연료비 없는 최고 안정 전원',
+   permit:'높음 (탐사·시추 허가)', constDiff:'높음',
+   constructionMonths:48,operationMonths:24,capex:180000,opex:3000,revenue:12000,equity:0.35,loanRate:0.058,loanYears:20,discount:0.09},
+  {id:'wte',icon:'♻️',name:'폐기물에너지화 (WtE)',
+   capacity:'500톤/일 소각 → 50 MW', fuel:'도시생활폐기물', factor:'80%',
+   feature:'폐기물 처리비(게이트피) + 전력판매 이중수익. 다이옥신 저감 설비가 인허가 핵심',
+   permit:'매우 높음', constDiff:'높음',
+   constructionMonths:36,operationMonths:24,capex:250000,opex:8000,revenue:14000,equity:0.30,loanRate:0.062,loanYears:20,discount:0.09},
+  {id:'pipeline',icon:'🔩',name:'가스 파이프라인 (장거리)',
+   capacity:'수송용량 500 MMSCFD', fuel:'없음 (압축 전력)', factor:'95%',
+   feature:'km당 $1~3M 건설비. 통과국 허가·토지수용이 최대 리스크. 용량요금(capacity charge) 구조',
+   permit:'매우 높음 (다국 협정)', constDiff:'높음',
+   constructionMonths:42,operationMonths:18,capex:800000,opex:8000,revenue:50000,equity:0.30,loanRate:0.058,loanYears:25,discount:0.09},
+  {id:'metro',icon:'🚇',name:'도시철도·지하철 (PPP)',
+   capacity:'연장 30km, 수송 60만명/일', fuel:'전력 (열차운행)', factor:'—',
+   feature:'건설비 km당 $100~200M. 운임+부동산개발 복합수익. 이용객 수요예측이 재무모델 핵심',
+   permit:'매우 높음 (도시계획)', constDiff:'매우 높음',
+   constructionMonths:72,operationMonths:12,capex:2000000,opex:30000,revenue:55000,equity:0.25,loanRate:0.050,loanYears:30,discount:0.08},
+  {id:'hvdc',icon:'⚡',name:'HVDC 초고압 직류 송전',
+   capacity:'2,000 MW / 1,000km', fuel:'없음 (전력손실 ~3%)', factor:'95%',
+   feature:'AC 대비 장거리 손실 60% 절감. 컨버터 스테이션 2개소가 비용의 40%. 국가간 전력교역 프로젝트',
+   permit:'매우 높음 (다국 협정)', constDiff:'매우 높음',
+   constructionMonths:54,operationMonths:12,capex:1500000,opex:10000,revenue:80000,equity:0.30,loanRate:0.052,loanYears:25,discount:0.08}
+];
+
+const REGIONS = [
+  {id:'sea',emoji:'🌏',name:'동남아시아',subs:['인도네시아','베트남','필리핀','미얀마','말레이시아','태국']},
+  {id:'me',emoji:'🕌',name:'중동',subs:['UAE','오만','사우디아라비아','카타르','쿠웨이트','이라크']},
+  {id:'africa',emoji:'🌍',name:'아프리카',subs:['케냐','이집트','나이지리아','에티오피아','모잠비크','탄자니아']},
+  {id:'ca',emoji:'🏔️',name:'중앙아시아',subs:['우즈베키스탄','카자흐스탄','투르크메니스탄','키르기스스탄']},
+  {id:'oceania',emoji:'🦘',name:'오세아니아',subs:['호주 퀸즐랜드','호주 서호주','뉴질랜드']},
+  {id:'sa',emoji:'🌎',name:'남미',subs:['칠레','브라질','콜롬비아','페루','아르헨티나']},
+  {id:'eu',emoji:'🏛️',name:'동유럽·CIS',subs:['폴란드','루마니아','우크라이나','조지아']},
+  {id:'asia',emoji:'🗾',name:'동북아·남아시아',subs:['대만','방글라데시','파키스탄','인도']},
+];
+
+const EPCS = [
+  {id:'premium',icon:'🏆',name:'프리미엄 EPC',sub:'글로벌 Top-tier 시공사',
+   capexMod:1.20,constMod:0.80,evtMod:0.70,
+   pros:['공기 20% 단축','돌발이벤트 30% 감소','품질 최상위'],cons:['공사비 20% 증가']},
+  {id:'standard',icon:'⚙️',name:'표준 EPC',sub:'검증된 중견 시공사',
+   capexMod:1.00,constMod:1.00,evtMod:1.00,
+   pros:['균형잡힌 비용·품질','다수 레퍼런스'],cons:['특별한 강점 없음']},
+  {id:'fast',icon:'⚡',name:'패스트트랙 EPC',sub:'속도 최우선',
+   capexMod:1.10,constMod:0.70,evtMod:1.40,
+   pros:['공기 30% 단축','조기 수익 창출'],cons:['공사비 10% 증가','돌발이벤트 40% 증가']},
+  {id:'local',icon:'🤝',name:'현지 JV EPC',sub:'현지 파트너사 합작',
+   capexMod:0.88,constMod:1.15,evtMod:1.20,
+   pros:['공사비 12% 절감','현지 네트워크'],cons:['공기 15% 증가','이벤트 20% 증가']},
+  {id:'budget',icon:'💰',name:'저가 EPC',sub:'최저가 입찰',
+   capexMod:0.75,constMod:1.30,evtMod:1.60,
+   pros:['공사비 25% 절감'],cons:['공기 30% 증가','돌발이벤트 60% 증가']},
+];
+
+const SPEED_CFG = [
+  {label:'⏸ 일시정지',days:0},
+  {label:'🕐 1시간/틱',days:1/24},
+  {label:'🕕 6시간/틱',days:0.25},
+  {label:'🌙 12시간/틱',days:0.5},
+  {label:'📅 1일/틱',days:1},
+  {label:'🏃 7일/틱',days:7},
+  {label:'⚡ 30일/틱',days:30}
+];
+
+const EVT_CONST = [
+  {id:'permit_cancel',type:'crisis',icon:'🚫',title:'인허가 취소·재심사',desc:'현지 당국이 인허가를 취소하고 재심사를 요구했습니다.',
+   options:[{l:'A. 컨설팅법인 선임 (-500만원, 진행속도 -15% 1개월)',e:s=>{s.cash-=500;s.progressPenalty=0.15;s.progressPenaltyMo=1;}},
+            {l:'B. 자체대응 (비용없음, 진행속도 -30% 3개월)',e:s=>{s.progressPenalty=0.30;s.progressPenaltyMo=3;}}]},
+  {id:'cost_overrun',type:'crisis',icon:'💸',title:'설계 변경으로 공사비 초과 (+15%)',desc:'설계 변경으로 총 공사비가 15% 초과될 예정입니다.',
+   options:[{l:'A. 설계 간소화 (-CapEx 8%, 품질 저하)',e:s=>{s.totalCapex*=0.92;s.qualityPenalty=true;}},
+            {l:'B. 예산 증액 승인 (+대출, costMod+5%)',e:s=>{const add=s.totalCapex*0.15*(1-s.equityRatio);s.totalCapex*=1.15;s.loanBalance+=add;s.costMod+=0.05;}},
+            {l:'C. 공기 연장으로 비용 분산 (+2개월)',e:s=>{s.constructionMonths+=2;}}]},
+  {id:'local_strike',type:'crisis',icon:'✊',title:'현지 노동자 대규모 파업',desc:'현지 노동자들이 임금 인상을 요구하며 파업에 돌입했습니다.',
+   options:[{l:'A. 즉시 협상 (임금 +20%, 추가비용 -1000만)',e:s=>{s.cash-=1000;}},
+            {l:'B. 강행 (공사 중단, 공기 +1개월)',e:s=>{s.constructionMonths+=1;s.progressPenalty=0.5;s.progressPenaltyMo=1;}},
+            {l:'C. 외국인 인력 긴급투입 (-1500만원)',e:s=>{s.cash-=1500;}}]},
+  {id:'material_surge',type:'crisis',icon:'📦',title:'철근·시멘트 가격 30% 폭등',desc:'주요 자재 가격이 급등하여 공사비 압박이 심화되고 있습니다.',
+   options:[{l:'A. 재고 비축 (-현금 2000만원)',e:s=>{s.cash-=2000;s.costMod=Math.max(0.95,s.costMod-0.05);}},
+            {l:'B. 대체재 사용 (품질 저하)',e:s=>{s.qualityPenalty=true;}},
+            {l:'C. 공정 조정 (+공기 1개월)',e:s=>{s.constructionMonths+=1;}}]},
+  {id:'contractor_default',type:'crisis',icon:'🏚️',title:'시공사 유동성 위기',desc:'주요 시공사가 자금난에 처해 공사 중단 위기가 발생했습니다.',
+   options:[{l:'A. 긴급 대체 시공사 (-3000만, +공기 2개월)',e:s=>{s.cash-=3000;s.constructionMonths+=2;}},
+            {l:'B. 지원금 지급 (-2000만원)',e:s=>{s.cash-=2000;}},
+            {l:'C. 직영 전환 (-1500만, 진행속도 -20% 2개월)',e:s=>{s.cash-=1500;s.progressPenalty=0.2;s.progressPenaltyMo=2;}}]},
+  {id:'weather_disaster',type:'crisis',icon:'🌪️',title:'폭우·태풍으로 현장 피해',desc:'태풍으로 공사 현장에 심각한 피해가 발생했습니다.',
+   options:[{l:'A. 보험 청구+수리 (공기 +2개월)',e:s=>{s.constructionMonths+=2;}},
+            {l:'B. 공정 재조정 (공기 +1개월)',e:s=>{s.constructionMonths+=1;}},
+            {l:'C. 긴급 복구비 투입 (-2500만원)',e:s=>{s.cash-=2500;}}]},
+  {id:'fx_shock',type:'external',icon:'💱',title:'환율 급변동 (±15%)',desc:'환율이 급격히 변동하여 사업비에 영향을 미치고 있습니다.',
+   options:[{l:'A. 헤지 계약 체결 (-500만원)',e:s=>{s.cash-=500;}},
+            {l:'B. 노출 감수 (리스크 유지, -손실)',e:s=>{s.cash-=Math.round(s.totalCapex*0.03);}},
+            {l:'C. 조기상환 일부 (-1000만)',e:s=>{s.cash-=1000;s.loanBalance=Math.max(0,s.loanBalance-1000);}}]},
+  {id:'political_risk',type:'crisis',icon:'🏛️',title:'현지 정권 교체·정책 변화',desc:'현지 정권이 교체되어 사업 정책이 불확실해졌습니다.',
+   options:[{l:'A. 현지 로비 투자 (-1000만원)',e:s=>{s.cash-=1000;}},
+            {l:'B. 계약 재협상 (공기 +2개월)',e:s=>{s.constructionMonths+=2;}},
+            {l:'C. 사업 일시 중단 (진행속도 -50% 2개월)',e:s=>{s.progressPenalty=0.5;s.progressPenaltyMo=2;}}]},
+  {id:'quality_issue',type:'external',icon:'🔍',title:'중간 품질검수 불합격',desc:'중간 품질검수에서 불합격 판정을 받았습니다.',
+   options:[{l:'A. 재시공 (-1500만, 공기 +1개월)',e:s=>{s.cash-=1500;s.constructionMonths+=1;}},
+            {l:'B. 보완시공 (-500만원)',e:s=>{s.cash-=500;}},
+            {l:'C. 강행 (운영 리스크, costMod+10%)',e:s=>{s.qualityPenalty=true;s.costMod+=0.10;}}]},
+  {id:'force_majeure',type:'crisis',icon:'🌋',title:'지진·자연재해 발생',desc:'현지에 대규모 자연재해가 발생하여 사업이 위기에 처했습니다.',
+   options:[{l:'A. 불가항력 조항 적용 (-800만, 공기 +3개월)',e:s=>{s.cash-=800;s.constructionMonths+=3;}},
+            {l:'B. 긴급복구 투입 (-3000만원)',e:s=>{s.cash-=3000;}},
+            {l:'C. 보험 청구 (공기 +3개월)',e:s=>{s.constructionMonths+=3;}}]}
+];
+
+const EVT_OP = [
+  {id:'equipment_failure',type:'crisis',icon:'⚙️',title:'핵심 설비 갑작스러운 고장',desc:'핵심 설비가 갑작스럽게 고장나 생산이 중단되었습니다.',
+   options:[{l:'A. 긴급 수리 (-1500만, 단기 생산중단 2개월)',e:s=>{s.cash-=1500;s.revMod*=0.7;s.revModMo=2;}},
+            {l:'B. 신규 교체 (-5000만원)',e:s=>{s.cash-=5000;}},
+            {l:'C. 외주 임시운영 (costMod+10% 3개월)',e:s=>{s.costMod+=0.10;s.costModMo=3;}}]},
+  {id:'demand_shortfall',type:'crisis',icon:'📉',title:'수요 예측 대비 30% 미달',desc:'실제 수요가 예측치를 30% 하회하고 있습니다.',
+   options:[{l:'A. 마케팅 강화 (-1000만, revMod×0.85)',e:s=>{s.cash-=1000;s.revMod*=0.85;}},
+            {l:'B. 요금 인하 (revMod×0.85 고정)',e:s=>{s.revMod*=0.85;}},
+            {l:'C. 시장 다변화 (-2000만, revMod×0.90)',e:s=>{s.cash-=2000;s.revMod*=0.90;}}]},
+  {id:'offtake_default',type:'crisis',icon:'📋',title:'주요 오프테이커 계약 해지',desc:'핵심 수요처가 계약을 일방적으로 해지했습니다.',
+   options:[{l:'A. 법적 대응 (-1000만, 6개월 revMod×0.6)',e:s=>{s.cash-=1000;s.revMod*=0.6;s.revModMo=6;}},
+            {l:'B. 조건 완화 재협상 (revMod×0.8)',e:s=>{s.revMod*=0.8;}},
+            {l:'C. 신규 오프테이커 발굴 (-1500만, 3개월 revMod×0.7)',e:s=>{s.cash-=1500;s.revMod*=0.7;s.revModMo=3;}}]},
+  {id:'tariff_cut',type:'crisis',icon:'⚖️',title:'정부 요금 규제 강화 (수익 -20%)',desc:'정부가 요금 규제를 강화하여 수익이 20% 감소했습니다.',
+   options:[{l:'A. 행정소송 (-800만, revMod×0.85)',e:s=>{s.cash-=800;s.revMod*=0.85;}},
+            {l:'B. 수용+원가절감 (revMod×0.80, costMod×0.95)',e:s=>{s.revMod*=0.80;s.costMod*=0.95;}},
+            {l:'C. 정치적 로비 (-1200만, revMod×0.90)',e:s=>{s.cash-=1200;s.revMod*=0.90;}}]},
+  {id:'opex_surge',type:'external',icon:'🛢️',title:'운영비 급등 (유가·인건비)',desc:'유가 및 인건비 상승으로 운영비가 급등하고 있습니다.',
+   options:[{l:'A. 연료 헤지 계약 (-800만 선불)',e:s=>{s.cash-=800;}},
+            {l:'B. 효율화 투자 (-2000만, costMod×0.90)',e:s=>{s.cash-=2000;s.costMod*=0.90;}},
+            {l:'C. 비용 전가 협상 (costMod×0.95)',e:s=>{s.costMod*=0.95;}}]},
+  {id:'partner_dispute',type:'crisis',icon:'🤝',title:'현지 파트너사 지분 분쟁',desc:'현지 파트너가 지분 구조에 이의를 제기하며 분쟁이 발생했습니다.',
+   options:[{l:'A. 지분 양도 합의 (-2000만원)',e:s=>{s.cash-=2000;}},
+            {l:'B. 법적 대응 (-1500만, 6개월 revMod×0.9)',e:s=>{s.cash-=1500;s.revMod*=0.9;s.revModMo=6;}},
+            {l:'C. 바이아웃 (-5000만원)',e:s=>{s.cash-=5000;}}]},
+  {id:'debt_restructure',type:'external',icon:'🏦',title:'대주단 조기상환 요구',desc:'대주단이 일부 조기상환을 요구해왔습니다.',
+   options:[{l:'A. 리파이낸싱 추진 (-600만, 월DS×0.9)',e:s=>{s.cash-=600;s.monthlyDS*=0.9;}},
+            {l:'B. 부분상환 (-3000만원)',e:s=>{s.cash-=3000;s.loanBalance=Math.max(0,s.loanBalance-3000);}},
+            {l:'C. 협상 연장 (costMod+2%)',e:s=>{s.costMod+=0.02;}}]},
+  {id:'positive_demand',type:'opportunity',icon:'🚀',title:'수요 예측 초과 달성 (+25%)',desc:'실제 수요가 예측치를 25% 초과 달성하고 있습니다!',
+   options:[{l:'A. 설비 증설 (-3000만, revMod×1.30)',e:s=>{s.cash-=3000;s.revMod*=1.30;}},
+            {l:'B. 현 설비 최대 가동 (revMod×1.20)',e:s=>{s.revMod*=1.20;}},
+            {l:'C. 수익 회수 우선 (revMod×1.10)',e:s=>{s.revMod*=1.10;}}]},
+  {id:'refinancing_opp',type:'opportunity',icon:'💰',title:'금리 하락으로 리파이낸싱 기회',desc:'시장 금리 하락으로 유리한 리파이낸싱이 가능합니다!',
+   options:[{l:'A. 즉시 리파이낸싱 (-400만, 월DS×0.85)',e:s=>{s.cash-=400;s.monthlyDS*=0.85;}},
+            {l:'B. 관망 (현 상태 유지)',e:s=>{}},
+            {l:'C. 부분 리파이낸싱 (-200만, 월DS×0.93)',e:s=>{s.cash-=200;s.monthlyDS*=0.93;}}]},
+  {id:'forex_gain',type:'opportunity',icon:'📈',title:'환율 유리한 방향 변동',desc:'환율이 유리한 방향으로 변동하여 수익 기회가 생겼습니다!',
+   options:[{l:'A. 헤지 포지션 정리 (+1000만원 이익실현)',e:s=>{s.cash+=1000;}},
+            {l:'B. 익스포저 확대 (revMod×1.10)',e:s=>{s.revMod*=1.10;}},
+            {l:'C. 현 포지션 유지 (+500만원)',e:s=>{s.cash+=500;}}]}
+];
+
+// ═══════════════════════════════════════════════
+// MANAGEMENT OPTIONS (연간 보고서)
+// ═══════════════════════════════════════════════
+const MGMT_OPTIONS = [
+  // 📈 매출
+  {id:'m_t5',  cat:'📈 매출', name:'타리프 5% 인상',       desc:'성공률 85%, 실패시 수요 -8%',
+   fn:s=>{const ok=Math.random()<0.85;s.monthlyRevenue*=ok?1.05:1.00;s.revMod*=ok?1.0:0.92;return ok?'✅ 타리프 5% 인상 성공':'❌ 협상 실패 — 수요 -8%';}},
+  {id:'m_t10', cat:'📈 매출', name:'타리프 10% 인상',      desc:'성공률 55%, 실패시 수요 -15%',
+   fn:s=>{const ok=Math.random()<0.55;s.monthlyRevenue*=ok?1.10:1.00;s.revMod*=ok?1.0:0.85;return ok?'✅ 타리프 10% 인상 성공':'❌ 협상 실패 — 수요 -15%';}},
+  {id:'m_mkt', cat:'📈 매출', name:'신규 시장 개척',        desc:'비용 2% CAPEX, revMod +12%',
+   fn:s=>{const c=Math.round(s.totalCapex*0.02);s.cash-=c;s.revMod*=1.12;return `✅ 신규 시장 개척 (${fmt(c)}) → 매출 +12%`;}},
+  {id:'m_ltc', cat:'📈 매출', name:'장기 오프테이크 계약',  desc:'수익 변동성 ±3%로 안정화',
+   fn:s=>{s.stableRevMode=true;return '✅ 장기 계약 체결 → 수익 변동성 축소';}},
+  // 💸 비용
+  {id:'m_c5',  cat:'💸 비용', name:'OPEX 절감 캠페인',      desc:'OPEX -5%',
+   fn:s=>{s.monthlyOpex*=0.95;return '✅ OPEX 5% 절감';}},
+  {id:'m_eff', cat:'💸 비용', name:'설비 효율화 투자',      desc:'비용 3% CAPEX, OPEX -10%',
+   fn:s=>{const c=Math.round(s.totalCapex*0.03);s.cash-=c;s.monthlyOpex*=0.90;return `✅ 효율화 투자 (${fmt(c)}) → OPEX -10%`;}},
+  {id:'m_mnt', cat:'💸 비용', name:'예방정비 강화',         desc:'비용 1.5% CAPEX, 이벤트 -30%',
+   fn:s=>{const c=Math.round(s.totalCapex*0.015);s.cash-=c;s.evtReduction=0.70;s.evtReductionMo=(s.reportInterval||12);return `✅ 예방정비 강화 (${fmt(c)}) → 이벤트 -30%`;}},
+  // 🏦 재무
+  {id:'m_ref', cat:'🏦 재무', name:'대출 리파이낸싱',       desc:'금리 -0.5%p, 수수료 0.5%',
+   fn:s=>{if(s.loanBalance<=0)return '⚠️ 잔여 대출 없음';const fee=Math.round(s.loanBalance*0.005);s.cash-=fee;s.loanRate=Math.max(0.01,s.loanRate-0.005);const ry=Math.max(1,s.loanYears-Math.floor(s.opMonthsDone/12));s.monthlyDS=monthlyPayment(s.loanBalance,s.loanRate,ry);return `✅ 리파이낸싱 (${fmt(fee)}) → 금리 -0.5%p`;}},
+  {id:'m_epr', cat:'🏦 재무', name:'부채 조기상환 10%',     desc:'현금 감소, 이자 절감',
+   fn:s=>{if(s.loanBalance<=0)return '⚠️ 잔여 대출 없음';const r=Math.round(s.loanBalance*0.10);if(s.cash<r)return '⚠️ 현금 부족';s.cash-=r;s.loanBalance=Math.max(0,s.loanBalance-r);const ry=Math.max(1,s.loanYears-Math.floor(s.opMonthsDone/12));s.monthlyDS=monthlyPayment(s.loanBalance,s.loanRate,ry);return `✅ 조기상환 ${fmt(r)}`;}},
+  {id:'m_eq',  cat:'🏦 재무', name:'추가 자기자본 투입',    desc:'+5% CAPEX, 건강도 +10',
+   fn:s=>{const a=Math.round(s.totalCapex*0.05);s.cash+=a;s.opHealth=Math.min(100,s.opHealth+10);return `✅ 자기자본 ${fmt(a)} 추입 → 건강도 +10`;}},
+  // 🏭 전략
+  {id:'m_exp', cat:'🏭 전략', name:'설비 증설',             desc:'비용 5% CAPEX, 매출 +20%',
+   fn:s=>{const c=Math.round(s.totalCapex*0.05);s.cash-=c;s.monthlyRevenue*=1.20;return `✅ 설비 증설 (${fmt(c)}) → 매출 +20%`;}},
+  {id:'m_ovr', cat:'🏭 전략', name:'운영체계 재정비',       desc:'3개월 매출 -8%, 건강도 +25',
+   fn:s=>{s.revMod*=0.92;s.revModMo=Math.max(s.revModMo,3);s.opHealth=Math.min(100,s.opHealth+25);return '✅ 운영 재정비 → 3개월 후 건강도 +25';}},
+];
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let sel = null, S = null, tickId = null;
+let selLoc = '', selEPC = null, pmName = 'PM';
+
+function startAspm(){
+  pmName = document.getElementById('pm-name').value.trim() || 'PM';
+  goTo('loc');
+}
+
+function saveRecord(grade, irr, npv, avgD){
+  const records = JSON.parse(localStorage.getItem('sim_records')||'[]');
+  records.push({
+    pm: pmName,
+    grade,
+    infra: S.infra.name,
+    loc: selLoc||S.infra.loc,
+    irr: (irr*100).toFixed(1),
+    npv: fmt(npv),
+    dscr: avgD.toFixed(2),
+    health: S.opHealth,
+    mgmt: S.mgmtScore,
+    date: new Date().toLocaleDateString('ko-KR')
+  });
+  records.sort((a,b)=>['S','A','B','C','D'].indexOf(a.grade)-['S','A','B','C','D'].indexOf(b.grade));
+  localStorage.setItem('sim_records', JSON.stringify(records.slice(0,20)));
+}
+
+function renderLeaderboard(){
+  const records = JSON.parse(localStorage.getItem('sim_records')||'[]');
+  const el = document.getElementById('leaderboard-list');
+  if(!records.length){el.innerHTML='<p style="color:var(--text2);font-size:0.82rem;">아직 기록 없음</p>';return;}
+  el.innerHTML=`<table class="event-table" style="width:100%;">
+    <thead><tr><th>#</th><th>PM</th><th>등급</th><th>사업</th><th>지역</th><th>IRR</th><th>NPV</th><th>DSCR</th><th>건강도</th><th>날짜</th></tr></thead>
+    <tbody>${records.map((r,i)=>`<tr>
+      <td>${i+1}</td><td><b>${r.pm}</b></td>
+      <td style="color:${r.grade==='S+'?'#ff9500':r.grade==='S'?'#ffd700':r.grade==='A+'?'#00ff88':r.grade==='A'?'var(--green)':r.grade==='B+'?'var(--accent)':r.grade==='B'?'#88ccff':'var(--yellow)'};font-weight:900;font-size:1.1rem;">${r.grade}</td>
+      <td style="font-size:0.75rem;">${r.infra}</td><td style="font-size:0.75rem;">${r.loc}</td>
+      <td>${r.irr}%</td><td>${r.npv}</td><td>${r.dscr}</td>
+      <td style="color:${parseInt(r.health)>=70?'var(--green)':'var(--yellow)'}">${r.health}</td>
+      <td style="font-size:0.72rem;color:var(--text2);">${r.date}</td>
+    </tr>`).join('')}</tbody>
+  </table>
+  <button class="btn-secondary" style="margin-top:0.8rem;font-size:0.78rem;" onclick="localStorage.removeItem('sim_records');renderLeaderboard();">기록 초기화</button>`;
+}
+let cMain = null, cSec = null, cResult = null;
+
+// ═══════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════
+const DOWK = ['일','월','화','수','목','금','토'];
+
+function fmt(v) {
+  const a=Math.abs(v), sg=v<0?'-':'';
+  if(a>=100000000) return sg+(a/100000000).toFixed(1)+'조원';
+  if(a>=10000) return sg+(a/10000).toFixed(1)+'억원';
+  if(a>=1000) return sg+(a/1000).toFixed(0)+'천만원';
+  return sg+a.toFixed(0)+'만원';
+}
+
+function fmtDate(d) {
+  return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${DOWK[d.getDay()]})`;
+}
+
+function toast(msg,dur=2500) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),dur);
+}
+
+function sCurve(t) { return 3*t*t-2*t*t*t; }
+
+function monthlyPayment(P,annR,yrs) {
+  const r=annR/12, n=yrs*12;
+  if(r===0||n===0) return P/Math.max(n,1);
+  return P*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);
+}
+
+function calcIRR(cfs) {
+  let rate=0.01;
+  for(let i=0;i<120;i++){
+    let npv=0,dnpv=0;
+    for(let t=0;t<cfs.length;t++){
+      npv+=cfs[t]/Math.pow(1+rate,t);
+      dnpv+=-t*cfs[t]/Math.pow(1+rate,t+1);
+    }
+    if(Math.abs(dnpv)<1e-12) break;
+    const nr=rate-npv/dnpv;
+    if(Math.abs(nr-rate)<1e-9){rate=nr;break;}
+    rate=Math.max(-0.99,nr);
+  }
+  return rate*12;
+}
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function goTo(name) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  if(name!=='sim'){
+    document.getElementById('event-dock').style.display='none';
+    document.getElementById('event-card-container').style.display='none';
+    if(tickId){clearInterval(tickId);tickId=null;}
+  }
+  if(name==='loc'){
+    setTimeout(()=>{
+      if(!leafMap){
+        leafMap=L.map('map',{zoomControl:true,worldCopyJump:false,maxBoundsViscosity:1.0,minZoom:2}).setView([20,20],3);
+        leafMap.setMaxBounds([[-85,-180],[85,180]]);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(leafMap);
+        leafMap.on('click',async e=>{
+          const {lat,lng}=e.latlng;
+          try{
+            const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ko`,{signal:AbortSignal.timeout(4000)});
+            const d=await r.json();
+            const city=d.address?.city||d.address?.town||d.address?.county||d.address?.state||'';
+            const country=d.address?.country||'';
+            setLoc(city?`${country} ${city}`.trim():country, lat, lng);
+          }catch{
+            setLoc(geoLookup(lat,lng), lat, lng);
+          }
+        });
+      } else {
+        leafMap.invalidateSize();
+      }
+    },100);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// SCREEN LOC — Leaflet Map
+// ═══════════════════════════════════════════════
+let leafMap=null, leafMarker=null;
+
+// [name, minLat,maxLat,minLng,maxLng, centerLat, centerLng]
+const GEO_DATA=[
+  ['대한민국',34,38,126,130,37,127],['일본',30,45,130,145,36,138],['중국',18,53,73,135,36,105],['대만',21,26,120,122,24,121],
+  ['인도네시아',-8,6,95,141,-2,118],['베트남',8,24,102,110,16,106],['필리핀',5,20,117,127,13,122],['말레이시아',1,7,100,119,4,109],
+  ['태국',6,21,97,106,15,101],['미얀마',10,28,92,102,19,97],['캄보디아',10,15,102,108,12,105],['싱가포르',1,2,103,104,1.4,103.8],
+  ['방글라데시',20,26,88,93,23,90],['파키스탄',24,37,61,77,30,70],['인도',8,37,68,97,22,79],['스리랑카',6,10,80,82,8,81],
+  ['UAE',22,26,51,56,24,54],['사우디아라비아',16,33,36,56,24,45],['오만',17,24,52,60,21,57],['카타르',24,27,50,52,25,51],
+  ['쿠웨이트',28,31,46,49,29,48],['이라크',29,38,38,49,33,44],['이란',25,40,44,64,33,54],['이스라엘',29,34,34,36,31,35],
+  ['요르단',29,33,35,39,31,37],['예멘',12,19,42,55,16,48],['이집트',22,32,25,37,27,31],
+  ['케냐',-5,5,34,42,0,38],['에티오피아',3,15,33,48,9,40],['나이지리아',4,14,3,15,9,8],['탄자니아',-12,-1,29,41,-6,35],
+  ['모잠비크',-27,-10,32,41,-18,35],['남아프리카공화국',-35,-22,17,33,-29,25],['가나',4,11,-4,2,8,-1],['앙골라',-18,-5,12,24,-12,18],
+  ['우즈베키스탄',37,46,56,74,42,63],['카자흐스탄',41,56,50,88,48,68],['투르크메니스탄',35,43,52,67,39,59],
+  ['키르기스스탄',39,43,70,80,42,75],['아제르바이잔',38,42,44,51,40,48],['조지아',41,44,40,47,42,44],
+  ['호주 퀸즐랜드',-29,-10,138,154,-20,144],['호주 서호주',-35,-14,114,130,-27,122],['호주 뉴사우스웨일스',-38,-28,141,154,-33,147],['뉴질랜드',-47,-34,166,178,-41,174],
+  ['파푸아뉴기니',-10,0,141,155,-6,147],
+  ['칠레',-56,-17,-76,-66,-35,-72],['브라질',-33,5,-74,-35,-15,-50],['콜롬비아',-5,13,-79,-66,4,-73],
+  ['페루',-18,0,-82,-68,-10,-75],['아르헨티나',-55,-22,-74,-53,-35,-64],
+  ['폴란드',49,55,14,24,52,19],['루마니아',44,48,22,30,46,25],['우크라이나',44,53,22,40,49,32],
+  ['모로코',27,36,-14,0,32,-6],['알제리',18,38,-9,12,28,3],['리비아',20,33,10,26,27,17],
+  ['멕시코',14,33,-118,-87,24,-102],['캐나다',42,84,-142,-52,60,-96],['미국',24,50,-125,-66,38,-97],
+  ['영국',50,59,-8,2,54,-2],['프랑스',42,52,-5,8,46,2],['독일',47,55,6,15,51,10],['터키',36,42,26,45,39,35],
+  ['러시아',41,82,27,190,60,100],
+];
+const GEO_CENTERS=GEO_DATA.map(d=>({n:d[0],la:d[5],lo:d[6]}));
+
+function geoLookup(lat,lng){
+  const matches=GEO_DATA.filter(d=>lat>=d[1]&&lat<=d[2]&&lng>=d[3]&&lng<=d[4]);
+  if(matches.length===0) return `위도 ${lat.toFixed(1)}, 경도 ${lng.toFixed(1)}`;
+  // 가장 작은 영역(세밀한 매칭) 우선
+  matches.sort((a,b)=>((a[2]-a[1])*(a[4]-a[3]))-((b[2]-b[1])*(b[4]-b[3])));
+  return matches[0][0];
+}
+
+const COUNTRY_LIST=[
+  '대한민국','일본','중국','대만','홍콩','싱가포르','인도','파키스탄','방글라데시','스리랑카',
+  '인도네시아','베트남','필리핀','말레이시아','태국','미얀마','캄보디아','라오스','브루나이','동티모르',
+  'UAE','사우디아라비아','오만','카타르','쿠웨이트','바레인','이라크','이란','이스라엘','요르단','레바논','예멘',
+  '호주 퀸즐랜드','호주 서호주','호주 뉴사우스웨일스','뉴질랜드','파푸아뉴기니','피지',
+  '케냐','나이지리아','이집트','에티오피아','남아프리카공화국','탄자니아','모잠비크','가나','코트디부아르','앙골라','잠비아','르완다',
+  '우즈베키스탄','카자흐스탄','투르크메니스탄','키르기스스탄','타지키스탄','아제르바이잔','조지아','아르메니아',
+  '칠레','브라질','콜롬비아','페루','아르헨티나','에콰도르','볼리비아','우루과이','파나마','코스타리카',
+  '폴란드','루마니아','불가리아','세르비아','우크라이나','헝가리','체코','슬로바키아',
+  '모로코','튀니지','알제리','리비아','수단','에리트레아',
+  '멕시코','캐나다','미국','영국','프랑스','독일','이탈리아','스페인','터키','러시아'
+];
+
+
+function setLoc(v,lat,lng){
+  selLoc=v;
+  const d=document.getElementById('loc-selected-display');
+  d.style.display='block'; d.textContent='📍 '+v;
+  document.getElementById('btn-loc-next').disabled=false;
+  document.getElementById('loc-search').value='';
+  document.getElementById('loc-search-results').style.display='none';
+  if(lat!=null&&leafMap){
+    if(leafMarker) leafMarker.remove();
+    leafMarker=L.marker([lat,lng]).addTo(leafMap).bindPopup(v).openPopup();
+    leafMap.setView([lat,lng],5);
+  }
+}
+
+function filterLocSearch(v){
+  const res=document.getElementById('loc-search-results');
+  if(!v.trim()){res.style.display='none';return;}
+  const matches=COUNTRY_LIST.filter(c=>c.toLowerCase().includes(v.toLowerCase())||v.toLowerCase().includes(c.toLowerCase().substring(0,3)));
+  if(!matches.length){res.style.display='none';return;}
+  res.style.display='block';
+  res.innerHTML=matches.slice(0,10).map(m=>`<div onclick="searchLocSelect('${m}')" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.85rem;border-bottom:1px solid var(--border);" onmouseover="this.style.background='rgba(0,212,255,0.1)'" onmouseout="this.style.background=''">${m}</div>`).join('');
+}
+
+async function searchLocSelect(name){
+  const found=GEO_CENTERS.find(g=>g.n===name);
+  const la=found?.la, lo=found?.lo;
+  if(la&&lo){
+    try{
+      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${la}&lon=${lo}&format=json&accept-language=ko`,{signal:AbortSignal.timeout(4000)});
+      const d=await r.json();
+      const city=d.address?.city||d.address?.town||d.address?.state||'';
+      const country=d.address?.country||'';
+      setLoc(city?`${country} ${city}`.trim():name, la, lo);
+    }catch{ setLoc(name,la,lo); }
+  } else { setLoc(name,null,null); }
+}
+
+function buildLocGrid(){}
+
+// ═══════════════════════════════════════════════
+// SCREEN EPC
+// ═══════════════════════════════════════════════
+function goToEPC(){
+  if(!sel){toast('인프라 유형을 먼저 선택해주세요.');return;}
+  buildEPCGrid();
+  goTo('epc');
+}
+
+function buildEPCGrid(){
+  const g=document.getElementById('epc-grid'); g.innerHTML='';
+  EPCS.forEach(e=>{
+    const c=document.createElement('div'); c.className='epc-card';
+    const constChg=((e.constMod-1)*100).toFixed(0);
+    const capexChg=((e.capexMod-1)*100).toFixed(0);
+    const evtChg=((e.evtMod-1)*100).toFixed(0);
+    c.innerHTML=`<span class="epc-icon">${e.icon}</span>
+      <div class="epc-name">${e.name}</div>
+      <div class="epc-sub">${e.sub}</div>
+      <div class="epc-stat">공사비 <span class="${capexChg>0?'dn':'up'}">${capexChg>0?'+'+capexChg:capexChg}%</span></div>
+      <div class="epc-stat">공기 <span class="${constChg>0?'dn':'up'}">${constChg>0?'+'+constChg:constChg}%</span></div>
+      <div class="epc-stat">이벤트빈도 <span class="${evtChg>0?'dn':'up'}">${evtChg>0?'+'+evtChg:evtChg}%</span></div>
+      <div class="epc-pros">${e.pros.map(p=>'✅ '+p).join('<br>')}</div>
+      <div class="epc-cons">${e.cons.map(p=>'⚠️ '+p).join('<br>')}</div>`;
+    c.onclick=()=>{
+      document.querySelectorAll('.epc-card').forEach(x=>x.classList.remove('selected'));
+      c.classList.add('selected'); selEPC=e;
+      document.getElementById('btn-epc-next').disabled=false;
+    };
+    g.appendChild(c);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// SCREEN 2: INFRA
+// ═══════════════════════════════════════════════
+function buildInfraGrid(){
+  const g=document.getElementById('infra-grid'); g.innerHTML='';
+  INFRAS.forEach(inf=>{
+    const c=document.createElement('div');
+    c.className='infra-card';
+    c.innerHTML=`<div class="infra-icon">${inf.icon}</div>
+      <div class="infra-name">${inf.name}</div>
+      <div style="font-size:0.72rem;color:var(--accent);margin-bottom:0.6rem;">${inf.capacity}</div>
+      <div style="font-size:0.7rem;color:var(--text2);margin-bottom:0.3rem;">⛽ ${inf.fuel}</div>
+      <div style="font-size:0.7rem;color:var(--text2);margin-bottom:0.5rem;">📊 가동률 ${inf.factor}</div>
+      <div style="font-size:0.68rem;color:var(--text);line-height:1.4;border-top:1px solid var(--border);padding-top:0.5rem;">${inf.feature}</div>
+      <div style="margin-top:0.5rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
+        <span style="font-size:0.62rem;padding:0.1rem 0.4rem;border-radius:10px;background:rgba(187,134,252,0.15);color:var(--purple);">허가 ${inf.permit}</span>
+        <span style="font-size:0.62rem;padding:0.1rem 0.4rem;border-radius:10px;background:rgba(255,193,7,0.15);color:var(--yellow);">시공 ${inf.constDiff}</span>
+        <span style="font-size:0.62rem;padding:0.1rem 0.4rem;border-radius:10px;background:rgba(0,212,255,0.15);color:var(--accent);">공사 ${inf.constructionMonths}개월</span>
+      </div>`;
+    c.onclick=()=>{
+      document.querySelectorAll('.infra-card').forEach(x=>x.classList.remove('selected'));
+      c.classList.add('selected'); sel=inf;
+      document.getElementById('custom-infra-row').style.display='none';
+      document.getElementById('btn-infra-next').disabled=false;
+    };
+    g.appendChild(c);
+  });
+  // 기타 카드
+  const custom=document.createElement('div');
+  custom.className='infra-card';
+  custom.innerHTML=`<div class="infra-icon">✏️</div><div class="infra-name">기타 (직접 입력)</div>
+    <div class="infra-stats"><div class="infra-stat" style="grid-column:1/-1;color:var(--text2);">사업 유형·규모 직접 설정</div></div>`;
+  custom.onclick=()=>{
+    document.querySelectorAll('.infra-card').forEach(x=>x.classList.remove('selected'));
+    custom.classList.add('selected');
+    document.getElementById('custom-infra-row').style.display='flex';
+    sel={id:'custom',icon:'✏️',name:'',loc:'',constructionMonths:24,operationMonths:24,capex:100000,opex:5000,revenue:10000,equity:0.30,loanRate:0.060,loanYears:20,discount:0.10};
+    document.getElementById('btn-infra-next').disabled=false;
+  };
+  g.appendChild(custom);
+}
+
+function updateCustomInfra(){
+  if(!sel||sel.id!=='custom') return;
+  sel.name=document.getElementById('ci-name').value||'커스텀 프로젝트';
+  sel.constructionMonths=parseInt(document.getElementById('ci-const').value)||24;
+  sel.capex=parseFloat(document.getElementById('ci-capex').value)||100000;
+  sel.revenue=parseFloat(document.getElementById('ci-rev').value)||10000;
+}
+
+function goToSetup(){
+  if(!sel) return;
+  fillForm(sel);
+  goTo('setup');
+  // pIRR 초기화 안내
+  const tc=document.getElementById('pirr-compare');
+  if(tc) tc.innerHTML='<span style="color:var(--text2)">pIRR을 입력하면 필요 월매출이 자동계산됩니다</span>';
+  updatePreview();
+}
+
+// ═══════════════════════════════════════════════
+// SCREEN 3: SETUP
+// ═══════════════════════════════════════════════
+function fillForm(inf){
+  document.getElementById('f_capex').value=inf.capex;
+  document.getElementById('f_equity').value=(inf.equity*100).toFixed(0);
+  document.getElementById('f_loanRate').value=(inf.loanRate*100).toFixed(1);
+  document.getElementById('f_loanYears').value=inf.loanYears;
+  document.getElementById('f_constMonths').value=inf.constructionMonths;
+  document.getElementById('f_opMonths').value=inf.operationMonths;
+  document.getElementById('f_revenue').value=inf.revenue;
+  document.getElementById('f_opex').value=inf.opex;
+  document.getElementById('f_discount').value=(inf.discount*100).toFixed(0);
+  document.getElementById('f_startDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('f_irrYears').value=inf.loanYears;
+}
+
+function gv(){
+  return {
+    totalCapex:parseFloat(document.getElementById('f_capex').value)||0,
+    equityRatio:(parseFloat(document.getElementById('f_equity').value)||0)/100,
+    loanRate:(parseFloat(document.getElementById('f_loanRate').value)||0)/100,
+    loanYears:parseFloat(document.getElementById('f_loanYears').value)||0,
+    constructionMonths:parseInt(document.getElementById('f_constMonths').value)||0,
+    operationMonths:parseInt(document.getElementById('f_opMonths').value)||0,
+    monthlyRevenue:parseFloat(document.getElementById('f_revenue').value)||0,
+    monthlyOpex:parseFloat(document.getElementById('f_opex').value)||0,
+    discount:(parseFloat(document.getElementById('f_discount').value)||0)/100,
+    startDate:document.getElementById('f_startDate').value||new Date().toISOString().split('T')[0]
+  };
+}
+
+function updatePreview(){
+  const v=gv();
+  if(v.totalCapex<=0) return;
+  const loan=v.totalCapex*(1-v.equityRatio);
+  const equity=v.totalCapex*v.equityRatio;
+  const ds=monthlyPayment(loan,v.loanRate,v.loanYears);
+  const ebitda=v.monthlyRevenue-v.monthlyOpex;
+  const ncf=ebitda-ds;
+  const dscr=ds>0?ebitda/ds:0;
+  let bep='-'; let cum=0;
+  for(let m=1;m<=v.operationMonths;m++){cum+=ncf;if(cum>0){bep=m+'개월';break;}}
+
+  // Project IRR: -capex t=0, then monthly ebitda during operation
+  const pCFs=[-v.totalCapex,...Array(v.operationMonths).fill(ebitda)];
+  // Equity IRR: -equity t=0, then monthly after-debt NCF
+  const eCFs=[-equity,...Array(v.operationMonths).fill(ncf)];
+  const pIRR=calcIRR(pCFs), eIRR=calcIRR(eCFs);
+
+  // NPV at discount rate
+  const mdr=v.discount/12;
+  let npv=-v.totalCapex;
+  for(let m=0;m<v.operationMonths;m++) npv+=ebitda/Math.pow(1+mdr,v.constructionMonths+m+1);
+
+  const irrColor=r=>r>v.discount?'var(--green)':r>0?'var(--yellow)':'var(--red)';
+  const el=(id,txt,col)=>{const e=document.getElementById(id);if(e){e.textContent=txt;if(col)e.style.color=col;}};
+
+  // 목표 pIRR 비교 — 상단 배너
+  const tEl=document.getElementById('pirr-compare');
+  const tp=parseFloat(document.getElementById('f_targetPIRR').value)/100;
+  if(tEl){
+    if(tp>0){
+      const diff=pIRR-tp;
+      const diffStr=(diff>=0?'+':'')+( diff*100).toFixed(1)+'%p';
+      const col=diff>=0?'var(--green)':diff>-0.02?'var(--yellow)':'var(--red)';
+      tEl.innerHTML=`현재 pIRR <b style="color:${irrColor(pIRR)}">${(pIRR*100).toFixed(1)}%</b> &nbsp;|&nbsp; 목표 대비 <b style="color:${col}">${diffStr}</b>`;
+    } else { tEl.innerHTML='<span style="color:var(--text2)">pIRR을 입력하면 필요 월매출이 자동계산됩니다</span>'; }
+  }
+  // 미리보기 pIRR 블록 색상
+  const pirrBlockEl=document.getElementById('prev-pirr-block');
+  const pirrVsEl=document.getElementById('prev-pirr-vs');
+  if(pirrBlockEl){
+    if(tp>0){
+      const diff=pIRR-tp;
+      const col=diff>=0?'var(--green)':diff>-0.02?'var(--yellow)':'var(--red)';
+      pirrBlockEl.style.borderColor=col;
+      if(pirrVsEl) pirrVsEl.innerHTML=`목표 <b style="color:var(--accent)">${(tp*100).toFixed(1)}%</b> 대비 <b style="color:${col}">${(diff>=0?'+':'')+( diff*100).toFixed(1)}%p</b>`;
+    } else {
+      pirrBlockEl.style.borderColor='var(--border)';
+      if(pirrVsEl) pirrVsEl.innerHTML='';
+    }
+  }
+
+  el('prev-irr',(pIRR*100).toFixed(1)+'%', irrColor(pIRR));
+  el('prev-eirr',(eIRR*100).toFixed(1)+'%', irrColor(eIRR));
+  el('prev-npv',fmt(npv), npv>0?'var(--green)':'var(--red)');
+  el('prev-rev',fmt(v.monthlyRevenue));
+  el('prev-opex-val',fmt(v.monthlyOpex));
+  el('prev-ebitda',fmt(ebitda), ebitda>0?'var(--green)':'var(--red)');
+  el('prev-ds',fmt(ds));
+  el('prev-ncf',fmt(ncf), ncf>0?'var(--green)':'var(--red)');
+  el('prev-dscr',dscr.toFixed(2), dscr>=1.2?'var(--green)':dscr>=1?'var(--yellow)':'var(--red)');
+  el('prev-bep',bep);
+  el('prev-loan',fmt(loan));
+  el('prev-equity-val',fmt(equity));
+  el('prev-const',v.constructionMonths+'개월 / 전체 '+(v.constructionMonths+v.operationMonths)+'개월');
+}
+
+function onPIRRInput(){
+  const tp=parseFloat(document.getElementById('f_targetPIRR').value);
+  if(tp>0&&tp<100) reverseCalcFromPIRR(true);
+  else updatePreview();
+}
+
+function reverseCalcFromPIRR(silent){
+  const tp=parseFloat(document.getElementById('f_targetPIRR').value)/100;
+  if(!tp||tp<=0||tp>=1){if(!silent)toast('목표 pIRR을 입력하세요 (예: 12)');return;}
+  // 인프라 기본모델 전체 리셋 → IRR에 맞는 매출만 역산
+  if(sel) fillForm(sel);
+  const v=gv();
+  if(!v.totalCapex){if(!silent)toast('인프라 유형을 먼저 선택해주세요.');return;}
+  const irrYrEl=document.getElementById('f_irrYears');
+  const projYrs=parseFloat(irrYrEl.value)||v.loanYears||20;
+  const n=Math.round(projYrs*12);
+  const r=tp/12;
+  const annuity=(1-Math.pow(1+r,-n))/r;
+  const targetEbitda=v.totalCapex/annuity;
+  const targetRevenue=targetEbitda+(v.monthlyOpex||0);
+  document.getElementById('f_revenue').value=Math.round(targetRevenue);
+  updatePreview();
+  if(!silent) toast(`pIRR ${(tp*100).toFixed(1)}% 기준으로 ${sel.name} 기본 모델이 자동구성됐습니다. 항목을 자유롭게 수정하세요.`);
+}
+
+function downloadCSV(){
+  const v=gv();
+  const rows=[
+    ['field','value','description'],
+    ['total_capex',v.totalCapex,'총 사업비 (만원)'],
+    ['equity_ratio',(v.equityRatio*100).toFixed(1),'자기자본 비율 (%)'],
+    ['loan_rate',(v.loanRate*100).toFixed(1),'대출금리 (%)'],
+    ['loan_tenor',v.loanYears,'대출기간 (년)'],
+    ['construction_months',v.constructionMonths,'공사 기간 (개월)'],
+    ['operation_months',v.operationMonths,'운영 기간 (개월)'],
+    ['monthly_revenue',v.monthlyRevenue,'월 매출 (만원)'],
+    ['monthly_opex',v.monthlyOpex,'월 운영비 (만원)'],
+    ['discount_rate',(v.discount*100).toFixed(1),'할인율 (%)'],
+    ['project_start_date',v.startDate,'사업 시작일 (YYYY-MM-DD)']
+  ];
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='재무모델_템플릿.csv';a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV 템플릿이 다운로드되었습니다.');
+}
+
+function uploadCSV(event){
+  const file=event.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const lines=e.target.result.split('\n');
+    const map={};
+    lines.forEach(l=>{const p=l.split(',');if(p.length>=2)map[p[0].trim()]=p[1].trim();});
+    if(map['total_capex']) document.getElementById('f_capex').value=map['total_capex'];
+    if(map['equity_ratio']) document.getElementById('f_equity').value=map['equity_ratio'];
+    if(map['loan_rate']) document.getElementById('f_loanRate').value=map['loan_rate'];
+    if(map['loan_tenor']) document.getElementById('f_loanYears').value=map['loan_tenor'];
+    if(map['construction_months']) document.getElementById('f_constMonths').value=map['construction_months'];
+    if(map['operation_months']) document.getElementById('f_opMonths').value=map['operation_months'];
+    if(map['monthly_revenue']) document.getElementById('f_revenue').value=map['monthly_revenue'];
+    if(map['monthly_opex']) document.getElementById('f_opex').value=map['monthly_opex'];
+    if(map['discount_rate']) document.getElementById('f_discount').value=map['discount_rate'];
+    if(map['project_start_date']) document.getElementById('f_startDate').value=map['project_start_date'];
+    updatePreview();
+    toast('CSV 파일이 업로드되었습니다.');
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+// ═══════════════════════════════════════════════
+// SIMULATION START
+// ═══════════════════════════════════════════════
+function startSim(){
+  const v=gv();
+  if(v.totalCapex<=0){toast('총 사업비를 입력해주세요.');return;}
+  const epc=selEPC||EPCS[1];
+  v.totalCapex=Math.round(v.totalCapex*epc.capexMod);
+  v.constructionMonths=Math.round(v.constructionMonths*epc.constMod);
+  const loan=v.totalCapex*(1-v.equityRatio);
+  const ds=monthlyPayment(loan,v.loanRate,v.loanYears);
+  const sdp=v.startDate.split('-');
+  const sd=new Date(+sdp[0],+sdp[1]-1,+sdp[2]);
+  const pcd=new Date(sd); pcd.setMonth(pcd.getMonth()+v.constructionMonths);
+
+  const tpirr=parseFloat(document.getElementById('f_targetPIRR').value)/100||0;
+  const ri=parseInt(document.getElementById('f_reportInterval').value);
+  const irrYr=parseFloat(document.getElementById('f_irrYears').value)||v.loanYears||20;
+
+  S={
+    infra:sel||INFRAS[0],
+    totalCapex:v.totalCapex, equityRatio:v.equityRatio,
+    loanRate:v.loanRate, loanYears:v.loanYears, irrYears:irrYr,
+    constructionMonths:v.constructionMonths, operationMonths:v.operationMonths,
+    monthlyRevenue:v.monthlyRevenue, monthlyOpex:v.monthlyOpex, discount:v.discount,
+    targetPIRR:tpirr, reportInterval:ri,
+    phase:'construction',
+    currentDate:new Date(sd), startDate:new Date(sd),
+    constMonthsDone:0, opMonthsDone:0,
+    lastMonthKey:-1,
+    cash:v.totalCapex*v.equityRatio,
+    loanBalance:loan, initialLoan:loan, monthlyDS:ds,
+    revMod:1, costMod:1, revModMo:0, costModMo:0,
+    progressPenalty:0, progressPenaltyMo:0,
+    qualityPenalty:false,
+    constructionProgress:0, capexSpent:0,
+    monthlyCFs:[], allCFs:[-v.totalCapex], dscrHistory:[],
+    periodData:[],
+    cumulativeNPV:0, operationCumProfit:0,
+    bepAchieved:false, bepMonth:null,
+    opHealth:70, mgmtScore:0,
+    speedDays:30,
+    pendingEvents:[], resolvedEvents:[],
+    constPool:shuffle([...EVT_CONST]), opPool:shuffle([...EVT_OP]),
+    nextConstEvtMo:Math.round((2+Math.floor(Math.random()*4))/epc.evtMod),
+    nextOpEvtMo:Math.round((1+Math.floor(Math.random()*3))/epc.evtMod),
+    transitionShown:false, gameOver:false,
+    plannedCompletionDate:pcd, actualCompletionDate:null,
+    initConstMonths:v.constructionMonths,
+    stableRevMode:false, evtReduction:0, evtReductionMo:0,
+    annualReportPending:false
+  };
+
+  initCharts();
+  document.getElementById('sim-icon').textContent=S.infra.icon;
+  document.getElementById('sim-name').textContent=S.infra.name;
+  document.getElementById('sim-loc').textContent='📍 '+(selLoc||S.infra.loc)+(epc?' | '+epc.name:'');
+  document.getElementById('speed-slider').value=2;
+  document.getElementById('speed-label').textContent=SPEED_CFG[2].label;
+  document.getElementById('event-dock').style.display='block';
+  document.getElementById('event-card-container').style.display='none';
+  document.getElementById('phase-overlay').style.display='none';
+  document.getElementById('log-list').innerHTML='';
+
+  goTo('sim');
+  if(tickId) clearInterval(tickId);
+  tickId=setInterval(tick,200);
+}
+
+// ═══════════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════════
+const CHART_OPTS={responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{boxWidth:10,font:{size:9}}}},scales:{x:{ticks:{maxTicksLimit:8,font:{size:9}},grid:{color:'#1e2d50'}},y:{grid:{color:'#1e2d50'},ticks:{font:{size:9}}}}};
+
+function initCharts(){
+  if(cMain){cMain.destroy();cMain=null;}
+  if(cSec){cSec.destroy();cSec=null;}
+  Chart.defaults.color='#8899bb'; Chart.defaults.borderColor='#1e2d50';
+
+  cMain=new Chart(document.getElementById('chart-main').getContext('2d'),{
+    type:'line',
+    data:{labels:[],datasets:[
+      {label:'계획 공정률',data:[],borderColor:'#00d4ff',borderDash:[5,5],borderWidth:2,pointRadius:0,tension:0.4,fill:false},
+      {label:'실제 공정률',data:[],borderColor:'#00e676',borderWidth:2,pointRadius:0,tension:0.4,fill:false}
+    ]},
+    options:{...CHART_OPTS,scales:{x:{ticks:{maxTicksLimit:8,font:{size:9}},grid:{color:'#1e2d50'}},y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:9}},grid:{color:'#1e2d50'}}}}
+  });
+
+  cSec=new Chart(document.getElementById('chart-sec').getContext('2d'),{
+    type:'bar',
+    data:{labels:[],datasets:[{label:'월 CapEx',data:[],backgroundColor:'rgba(0,212,255,0.5)',borderColor:'#00d4ff',borderWidth:1}]},
+    options:{...CHART_OPTS,scales:{x:{ticks:{maxTicksLimit:8,font:{size:9}},grid:{color:'#1e2d50'}},y:{ticks:{callback:v=>fmt(v),font:{size:9}},grid:{color:'#1e2d50'}}}}
+  });
+
+  document.getElementById('chart1-title').textContent='📈 S커브 공정률 (계획 vs 실제)';
+  document.getElementById('chart2-title').textContent='💰 월별 CapEx 집행액';
+}
+
+function switchToOpCharts(){
+  if(cMain){cMain.destroy();cMain=null;}
+  if(cSec){cSec.destroy();cSec=null;}
+  document.getElementById('chart1-title').textContent='💰 월별 현금흐름';
+  document.getElementById('chart2-title').textContent='📈 누적 NPV';
+
+  cMain=new Chart(document.getElementById('chart-main').getContext('2d'),{
+    type:'line',
+    data:{labels:[],datasets:[{label:'월 현금흐름',data:[],borderColor:'#00e676',borderWidth:2,pointRadius:0,tension:0.3,fill:true,backgroundColor:'rgba(0,230,118,0.1)'}]},
+    options:{...CHART_OPTS,scales:{x:{ticks:{maxTicksLimit:8,font:{size:9}},grid:{color:'#1e2d50'}},y:{ticks:{callback:v=>fmt(v),font:{size:9}},grid:{color:'#1e2d50'}}}}
+  });
+
+  cSec=new Chart(document.getElementById('chart-sec').getContext('2d'),{
+    type:'line',
+    data:{labels:[],datasets:[{label:'누적 NPV',data:[],borderColor:'#bb86fc',borderWidth:2,pointRadius:0,tension:0.3,fill:true,backgroundColor:'rgba(187,134,252,0.1)'}]},
+    options:{...CHART_OPTS,scales:{x:{ticks:{maxTicksLimit:8,font:{size:9}},grid:{color:'#1e2d50'}},y:{ticks:{callback:v=>fmt(v),font:{size:9}},grid:{color:'#1e2d50'}}}}
+  });
+}
+
+// ═══════════════════════════════════════════════
+// TICK
+// ═══════════════════════════════════════════════
+function tick(){
+  if(!S||S.gameOver) return;
+  if(S.speedDays===0) return;
+
+  const prev=new Date(S.currentDate);
+  S.currentDate=new Date(S.currentDate.getTime()+S.speedDays*86400000);
+
+  const prevKey=prev.getFullYear()*12+prev.getMonth();
+  const curKey=S.currentDate.getFullYear()*12+S.currentDate.getMonth();
+  const diff=curKey-prevKey;
+
+  for(let i=0;i<diff;i++){
+    processMonth();
+    if(S.gameOver) break;
+  }
+
+  renderUI();
+  checkDockTimers();
+
+  if(S.phase==='operation'&&S.opMonthsDone>=S.operationMonths) endSim();
+}
+
+function processMonth(){
+  if(S.phase==='construction'){
+    doConstMonth();
+    S.constMonthsDone++;
+
+    // Event check
+    if(S.constMonthsDone>=S.nextConstEvtMo&&S.constPool.length>0){
+      fireEvent(S.constPool.shift());
+      S.nextConstEvtMo=S.constMonthsDone+2+Math.floor(Math.random()*5);
+    }
+
+    if(S.constMonthsDone>=S.constructionMonths){
+      S.phase='operation';
+      S.constructionProgress=1;
+      S.actualCompletionDate=new Date(S.currentDate);
+      if(!S.transitionShown){showPhaseOverlay();S.transitionShown=true;}
+      switchToOpCharts();
+    }
+  } else {
+    doOpMonth();
+    S.opMonthsDone++;
+
+    if(S.opMonthsDone>=S.nextOpEvtMo&&S.opPool.length>0){
+      if(!S.evtReduction||Math.random()>1-S.evtReduction){
+        fireEvent(S.opPool.shift());
+      }
+      S.nextOpEvtMo=S.opMonthsDone+1+Math.floor(Math.random()*4);
+    }
+  }
+
+  if(S.revModMo>0){S.revModMo--;if(S.revModMo===0)S.revMod=1;}
+  if(S.costModMo>0){S.costModMo--;if(S.costModMo===0)S.costMod=1;}
+  if(S.progressPenaltyMo>0){S.progressPenaltyMo--;if(S.progressPenaltyMo===0)S.progressPenalty=0;}
+}
+
+function doConstMonth(){
+  const m=S.constMonthsDone+1, tot=S.constructionMonths;
+  const t0=(m-1)/tot, t1=Math.min(m/tot,1);
+  const factor=1-S.progressPenalty;
+  const planDraw=S.totalCapex*(sCurve(t1)-sCurve(t0));
+  const actDraw=Math.max(0,planDraw*factor);
+  const loanDraw=actDraw*(1-S.equityRatio);
+  S.cash-=actDraw*S.equityRatio;
+  S.capexSpent+=actDraw;
+  S.loanBalance+=loanDraw;
+  S.constructionProgress=Math.min(1,S.constructionProgress+(t1-t0)*factor);
+
+  cMain.data.labels.push(m+'M');
+  cMain.data.datasets[0].data.push(+(sCurve(t1)*100).toFixed(1));
+  cMain.data.datasets[1].data.push(+(S.constructionProgress*100).toFixed(1));
+  cMain.update('none');
+  cSec.data.labels.push(m+'M');
+  cSec.data.datasets[0].data.push(actDraw);
+  cSec.update('none');
+}
+
+function doOpMonth(){
+  const m=S.opMonthsDone+1;
+  // 운영건강도: 100이면 +0.1%/월, 50이면 중립, 0이면 -0.5%/월
+  const healthEffect=((S.opHealth-50)/50)*0.005;
+  S.revMod=Math.max(0.3,Math.min(2,S.revMod*(1+healthEffect)));
+  // 안정 모드: revMod 변동 억제
+  if(S.stableRevMode) S.revMod=Math.max(0.97,Math.min(1.03,S.revMod));
+  // evtReduction 카운트다운
+  if(S.evtReductionMo>0){S.evtReductionMo--;if(S.evtReductionMo===0)S.evtReduction=0;}
+  const rev=S.monthlyRevenue*S.revMod;
+  const opex=S.monthlyOpex*S.costMod;
+  const ebitda=rev-opex;
+  const r=S.loanRate/12;
+  const interest=S.loanBalance*r;
+  const principal=Math.max(0,S.monthlyDS-interest);
+  S.loanBalance=Math.max(0,S.loanBalance-principal);
+  const ds=Math.min(S.monthlyDS,Math.max(0,S.cash+ebitda));
+  const netCF=ebitda-ds;
+  S.cash+=netCF;
+  S.operationCumProfit+=netCF;
+
+  const mdr=S.discount/12;
+  const t=S.constructionMonths+m;
+  S.cumulativeNPV+=netCF/Math.pow(1+mdr,t);
+  const dscr=ds>0?ebitda/ds:999;
+  S.dscrHistory.push(dscr);
+  S.monthlyCFs.push(netCF);
+  S.allCFs.push(netCF);
+  // period 데이터 누적 (연간보고서용)
+  S.periodData.push({rev,opex,ebitda,ds,ncf:netCF,dscr});
+
+  if(!S.bepAchieved&&S.operationCumProfit>0){S.bepAchieved=true;S.bepMonth=m;}
+
+  cMain.data.labels.push(m+'M');
+  cMain.data.datasets[0].data.push(netCF);
+  cMain.update('none');
+  cSec.data.labels.push(m+'M');
+  cSec.data.datasets[0].data.push(S.cumulativeNPV);
+  cSec.update('none');
+
+  if(S.cash<-S.totalCapex*0.5){
+    addLog('⚠️ 현금 고갈 — 사업 실패 위험!');
+    S.gameOver=true;
+    setTimeout(endSim,800);
+    return;
+  }
+
+  // 연간 재무보고서 트리거
+  if(S.reportInterval&&m>0&&m%S.reportInterval===0&&m<S.operationMonths&&!S.annualReportPending){
+    S.annualReportPending=true;
+    S.speedDays=0;
+    document.getElementById('speed-slider').value=0;
+    document.getElementById('speed-label').textContent=SPEED_CFG[0].label;
+    const yearNum=Math.floor(m/S.reportInterval);
+    setTimeout(()=>showAnnualReport(yearNum),300);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// SPEED
+// ═══════════════════════════════════════════════
+function setSpeed(v){
+  const i=parseInt(v);
+  S&&(S.speedDays=SPEED_CFG[i].days);
+  document.getElementById('speed-label').textContent=SPEED_CFG[i].label;
+}
+
+// ═══════════════════════════════════════════════
+// UI RENDER
+// ═══════════════════════════════════════════════
+const CV_STAGES=[
+  {pct:0, icon:'🌿', label:'부지 정지'},
+  {pct:12, icon:'⛏️', label:'기초 굴착'},
+  {pct:25, icon:'🧱', label:'기초 타설'},
+  {pct:40, icon:'🏗️', label:'구조물'},
+  {pct:58, icon:'🔩', label:'주설비 반입'},
+  {pct:72, icon:'🔌', label:'전기·배관'},
+  {pct:85, icon:'🎨', label:'마감 공사'},
+  {pct:95, icon:'🔍', label:'준공 검사'},
+];
+
+const CV_ART=[
+  ['🌿🌿🌿🌿🌿','🪨🪨🪨🪨🪨','⬜⬜⬜⬜⬜'],  // 0%
+  ['🌿🌿🌿🌿🌿','⛏️⛏️⛏️⛏️⛏️','🟫🟫🟫🟫🟫'],  // 12%
+  ['🌿🌿🌿🌿🌿','🧱🧱🧱🧱🧱','🟫🟫🟫🟫🟫'],  // 25%
+  ['🏗️🏗️🏗️🏗️🏗️','🧱🧱🧱🧱🧱','🟫🟫🟫🟫🟫'],  // 40%
+  ['🏗️🏗️🔩🏗️🏗️','🏭🏭🏭🏭🏭','🧱🧱🧱🧱🧱'],  // 58%
+  ['🏭🔌🏭🔌🏭','🏭🏭🏭🏭🏭','🧱🧱🧱🧱🧱'],  // 72%
+  ['🏭🏭🏭🏭🏭','🏭🏭🏭🏭🏭','🧱🧱🧱🧱🧱'],  // 85%
+  ['✅🏭🏭🏭✅','🏭🏭🏭🏭🏭','🧱🧱🧱🧱🧱'],  // 95%
+];
+
+function renderConstVisual(){
+  const pct=S.constructionProgress*100;
+  const card=document.getElementById('const-visual-card');
+  if(S.phase!=='construction'){card.style.display='none';return;}
+  card.style.display='block';
+  let stageIdx=0;
+  CV_STAGES.forEach((st,i)=>{if(pct>=st.pct) stageIdx=i;});
+  const sg=document.getElementById('cv-stages');
+  sg.innerHTML=CV_STAGES.map((st,i)=>`
+    <div class="cv-stage ${i<stageIdx?'done':i===stageIdx?'active':''}">
+      <span class="cv-icon">${i<=stageIdx?st.icon:'⬜'}</span>${st.label}
+    </div>`).join('');
+  const artIdx=Math.min(stageIdx,CV_ART.length-1);
+  document.getElementById('cv-art').textContent=CV_ART[artIdx].join('\n');
+}
+
+function renderUI(){
+  if(!S) return;
+  document.getElementById('sim-date').textContent=fmtDate(S.currentDate);
+
+  const badge=document.getElementById('phase-badge');
+  if(S.phase==='construction'){badge.textContent='🏗️ 공사중';badge.className='phase-badge construction';}
+  else{badge.textContent='⚡ 운영중';badge.className='phase-badge operation';}
+
+  let pct;
+  if(S.phase==='construction'){
+    pct=(S.constructionProgress*100).toFixed(1);
+    document.getElementById('prog-label').textContent='공정률 '+pct+'%';
+  } else {
+    pct=(S.opMonthsDone/S.operationMonths*100).toFixed(1);
+    document.getElementById('prog-label').textContent='운영 '+pct+'%';
+  }
+  document.getElementById('prog-fill').style.width=pct+'%';
+
+  renderKPIs();
+  renderFin();
+  renderConstVisual();
+}
+
+function renderKPIs(){
+  const c=document.getElementById('kpi-left');
+  let h='<div style="font-size:0.78rem;font-weight:700;color:var(--accent);margin-bottom:0.6rem;">📊 핵심 지표</div>';
+  if(S.phase==='construction'){
+    const p=(S.constructionProgress*100).toFixed(1);
+    const sp=S.totalCapex>0?(S.capexSpent/S.totalCapex*100).toFixed(1):0;
+    const rem=S.totalCapex-S.capexSpent;
+    const eac=S.constructionProgress>0?S.capexSpent/S.constructionProgress:S.totalCapex;
+    const ml=S.constructionMonths-S.constMonthsDone;
+    const ed=new Date(S.currentDate); ed.setMonth(ed.getMonth()+ml);
+    h+=kc('공정률',p+'%','accent')+kc('공사비 소진율',sp+'%','yellow')+kc('잔여 예산',fmt(rem),'green')
+      +kc('EAC',fmt(eac),eac>S.totalCapex?'red':'green')
+      +kc('예상 준공일',ed.getFullYear()+'년 '+(ed.getMonth()+1)+'월','accent')
+      +kc('현금잔액',fmt(S.cash),S.cash<0?'red':'green');
+  } else {
+    const lastCF=S.monthlyCFs.length?S.monthlyCFs[S.monthlyCFs.length-1]:0;
+    const lr=S.monthlyRevenue*S.revMod;
+    const lc=(S.monthlyOpex*S.costMod)+S.monthlyDS;
+    h+=kc('현금잔액',fmt(S.cash),S.cash<0?'red':'green')
+      +kc('이번달 매출',fmt(lr),'green')+kc('이번달 비용',fmt(lc),'red')
+      +kc('순현금흐름',fmt(lastCF),lastCF>=0?'green':'red')
+      +kc('누적 이익',fmt(S.operationCumProfit),S.operationCumProfit>=0?'green':'red')
+      +kc('BEP',S.bepAchieved?S.bepMonth+'개월':'미달성',S.bepAchieved?'green':'yellow')
+      +kc('운영건강도',S.opHealth+'/100',S.opHealth>=70?'green':S.opHealth>=40?'yellow':'red');
+  }
+  c.innerHTML=h;
+}
+
+function kc(label,value,cls){
+  return `<div class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value ${cls}">${value}</div></div>`;
+}
+
+function renderFin(){
+  const ebitda=S.monthlyRevenue*S.revMod-S.monthlyOpex*S.costMod;
+  const dscr=S.monthlyDS>0?ebitda/S.monthlyDS:999;
+  const avgD=S.dscrHistory.length?S.dscrHistory.reduce((a,b)=>a+b,0)/S.dscrHistory.length:0;
+  const lp=S.initialLoan>0?(S.loanBalance/S.initialLoan*100).toFixed(0):0;
+  document.getElementById('fin-panel').innerHTML=`
+    ${fr('대출잔액',fmt(S.loanBalance),'var(--yellow)')}
+    ${fr('대출잔액 비율',lp+'%','var(--text)')}
+    ${fr('월 원리금',fmt(S.monthlyDS),'var(--red)')}
+    ${fr('월 EBITDA',fmt(ebitda),ebitda>=0?'var(--green)':'var(--red)')}
+    ${fr('현재 DSCR',dscr>99?'N/A':dscr.toFixed(2),dscr>=1.2?'var(--green)':dscr>=1?'var(--yellow)':'var(--red)')}
+    ${fr('평균 DSCR',avgD>0?avgD.toFixed(2):'N/A',avgD>=1.2?'var(--green)':'var(--yellow)')}
+    ${fr('누적 NPV',fmt(S.cumulativeNPV),S.cumulativeNPV>=0?'var(--green)':'var(--red)')}
+    ${fr('revMod',(S.revMod*100).toFixed(0)+'%','var(--text)')}
+    ${fr('costMod',(S.costMod*100).toFixed(0)+'%','var(--text)')}
+  `;
+}
+
+function fr(label,val,col){
+  return `<div class="fin-row"><span class="fin-label">${label}</span><span class="fin-val" style="color:${col}">${val}</span></div>`;
+}
+
+// ═══════════════════════════════════════════════
+// EVENTS
+// ═══════════════════════════════════════════════
+function fireEvent(def){
+  if(!def) return;
+  const mo=S.phase==='construction'?S.constMonthsDone:S.opMonthsDone;
+  S.pendingEvents.push({
+    ...def, firedMo:mo, firedDate:new Date(S.currentDate),
+    firedAt:Date.now(), timeoutAt:Date.now()+120000, resolved:false
+  });
+  renderDock();
+  addLog('🔔 이벤트: '+def.title);
+}
+
+function renderDock(){
+  const container=document.getElementById('dock-events');
+  const cnt=document.getElementById('dock-cnt');
+  const active=S.pendingEvents.filter(e=>!e.resolved);
+  cnt.textContent=active.length;
+  if(!active.length){container.innerHTML='<div class="no-events-msg">이벤트 없음</div>';return;}
+  container.innerHTML='';
+  active.slice(0,4).forEach(ev=>{
+    const rem=Math.max(0,(ev.timeoutAt-Date.now())/1000);
+    const cls=rem>20?'':rem>10?'urgent-yellow':'urgent-red';
+    const b=document.createElement('div');
+    b.className='dock-event-btn '+cls;
+    b.innerHTML=ev.icon+'<span class="dock-timer">'+Math.ceil(rem)+'</span>';
+    b.title=ev.title; b.onclick=()=>openCard(ev);
+    container.appendChild(b);
+  });
+}
+
+function checkDockTimers(){
+  if(!S) return;
+  const now=Date.now();
+  S.pendingEvents.filter(e=>!e.resolved).forEach(ev=>{
+    if(now>=ev.timeoutAt) autoResolve(ev);
+  });
+  renderDock();
+}
+
+function autoResolve(ev){
+  ev.resolved=true;
+  const opt=ev.options[ev.options.length-1];
+  const cb=S.cash;
+  applyEvt(opt.e);
+  S.opHealth=Math.max(0,S.opHealth-12);
+  S.resolvedEvents.push({title:ev.title,option:opt.l,cashImpact:S.cash-cb,month:ev.firedMo,auto:true});
+  addLog('⏱ 자동처리: '+ev.title+' · 운영건강도 -12');
+  const cc=document.getElementById('event-card-container');
+  if(cc.dataset.evid===ev.id) cc.style.display='none';
+}
+
+function openCard(ev){
+  if(ev.resolved) return;
+  const cc=document.getElementById('event-card-container');
+  cc.dataset.evid=ev.id; cc.style.display='block';
+  const tm={'crisis':'tag-crisis','external':'tag-external','opportunity':'tag-opportunity'};
+  const tl={'crisis':'⚠️ 위기','external':'📢 외부변수','opportunity':'🚀 기회'};
+  const opts=ev.options.map((o,i)=>`<button class="event-option-btn" onclick="resolveEv('${ev.id}',${i})">${o.l}</button>`).join('');
+  // 딤 배경
+  let dim=document.getElementById('event-dim');
+  if(!dim){dim=document.createElement('div');dim.id='event-dim';dim.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:1000;';dim.onclick=()=>minimizeEvent(cc);document.body.appendChild(dim);}
+  dim.style.display='block';
+  cc.classList.remove('minimized');
+  const typeClass={'crisis':'type-crisis','opportunity':'type-opportunity','external':'type-external'};
+  cc.innerHTML=`<div class="event-card ${typeClass[ev.type]||''}">
+    <div class="event-card-topbar">
+      <span class="event-type-tag ${tm[ev.type]||'tag-external'}" style="margin:0;font-size:0.8rem;">${tl[ev.type]||'이벤트'} · ${ev.firedDate.getFullYear()}년 ${ev.firedDate.getMonth()+1}월</span>
+      <div style="display:flex;gap:0.4rem;">
+        <button class="btn-minimize" onclick="minimizeEvent(document.getElementById('event-card-container'))">─</button>
+        <button class="event-close-btn" style="position:static;float:none;" onclick="closeEventCard()">✕</button>
+      </div>
+    </div>
+    <div class="event-card-body">
+      <span class="event-big-icon">${ev.icon}</span>
+      <div class="event-title">${ev.title}</div>
+      <div class="event-desc">${ev.desc}</div>
+      <div class="response-bar" style="margin-bottom:1rem;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;">
+          <span class="response-label fast" id="rl_${ev.id}" style="font-size:0.8rem;">⚡ 신속 대응 +1.5%</span>
+          <span id="rt_${ev.id}" style="font-size:0.8rem;color:var(--text2);"></span>
+        </div>
+        <div class="response-progress" style="height:6px;"><div class="response-fill fill-green" id="rf_${ev.id}" style="width:100%"></div></div>
+      </div>
+      <div class="event-options">${opts}</div>
+    </div>
+  </div>`;
+  animRespBar(ev.id, ev.timeoutAt);
+}
+
+// 이벤트 현금 영향을 프로젝트 규모에 비례 (기준: capex 10만=1x, 100만=3x, 1000만=6x)
+function applyEvt(fn){
+  const before=S.cash;
+  fn(S);
+  const delta=S.cash-before;
+  if(delta!==0){
+    const scale=Math.max(1, Math.log10(Math.max(1,S.totalCapex/10000))*2);
+    S.cash=before+delta*scale;
+  }
+}
+
+function minimizeEvent(cc){
+  cc.classList.add('minimized');
+  const dim=document.getElementById('event-dim');
+  if(dim) dim.style.display='none';
+}
+function closeEventCard(){
+  const cc=document.getElementById('event-card-container');
+  cc.style.display='none'; cc.classList.remove('minimized');
+  const dim=document.getElementById('event-dim');
+  if(dim) dim.style.display='none';
+}
+
+function animRespBar(id, timeout){
+  const fill=document.getElementById('rf_'+id);
+  const label=document.getElementById('rl_'+id);
+  const timer=document.getElementById('rt_'+id);
+  if(!fill||!label) return;
+  const rem=Math.max(0,(timeout-Date.now())/1000);
+  fill.style.width=(rem/120*100)+'%';
+  if(timer) timer.textContent=Math.ceil(rem)+'초';
+  if(rem>80){fill.className='response-fill fill-green';label.className='response-label fast';label.textContent='⚡ 신속 대응 +1.5%';}
+  else if(rem>40){fill.className='response-fill fill-yellow';label.className='response-label normal';label.textContent='⏱ 일반 대응';}
+  else{fill.className='response-fill fill-red';label.className='response-label slow';label.textContent='🐌 늦은 대응 -1%';}
+  if(rem>0) setTimeout(()=>animRespBar(id,timeout),200);
+}
+
+function resolveEv(evId, optIdx){
+  const ev=S.pendingEvents.find(e=>e.id===evId&&!e.resolved);
+  if(!ev) return;
+  ev.resolved=true;
+  const opt=ev.options[optIdx];
+  const rem=Math.max(0,(ev.timeoutAt-Date.now())/1000);
+  const cb=S.cash;
+  applyEvt(opt.e);
+  if(rem>80){S.cash*=1.015;S.opHealth=Math.min(100,S.opHealth+8);S.mgmtScore+=10;toast('⚡ 신속 대응 +1.5% · 운영건강도 ↑');}
+  else if(rem>40){S.opHealth=Math.min(100,S.opHealth+3);S.mgmtScore+=5;}
+  else{S.cash*=0.990;S.opHealth=Math.max(0,S.opHealth-5);toast('🐌 늦은 대응 -1% · 운영건강도 ↓');}
+  S.resolvedEvents.push({title:ev.title,option:opt.l,cashImpact:S.cash-cb,month:ev.firedMo,auto:false});
+  addLog('✅ 해결: '+ev.title);
+  document.getElementById('event-card-container').style.display='none';
+  renderDock();
+}
+
+function addLog(msg){
+  const el=document.getElementById('log-list');
+  const d=document.createElement('div');
+  d.style.marginBottom='2px'; d.textContent=msg;
+  el.insertBefore(d,el.firstChild);
+  if(el.children.length>20) el.removeChild(el.lastChild);
+}
+
+// ═══════════════════════════════════════════════
+// ANNUAL REPORT
+// ═══════════════════════════════════════════════
+function calcProjectedPIRR(){
+  if(!S||!S.allCFs||S.allCFs.length<2) return null;
+  const irrN=(S.irrYears||S.loanYears||20)*12;
+  const done=S.opMonthsDone;
+  const remaining=Math.max(0,irrN-done);
+  if(remaining===0) return calcIRR(S.allCFs);
+  const recentCFs=S.monthlyCFs.slice(-3);
+  const avgNCF=recentCFs.length?recentCFs.reduce((a,b)=>a+b,0)/recentCFs.length:0;
+  const proj=[...S.allCFs,...Array(remaining).fill(avgNCF)];
+  return calcIRR(proj);
+}
+
+let arSelectedOpts=[];
+
+function showAnnualReport(yearNum){
+  const ri=S.reportInterval||12;
+  const periodStart=(yearNum-1)*ri;
+  const pd=S.periodData.slice(periodStart, periodStart+ri);
+  if(!pd.length){S.annualReportPending=false;return;}
+
+  const pRev=pd.reduce((a,b)=>a+b.rev,0);
+  const pOpex=pd.reduce((a,b)=>a+b.opex,0);
+  const pEbitda=pd.reduce((a,b)=>a+b.ebitda,0);
+  const pDS=pd.reduce((a,b)=>a+b.ds,0);
+  const pNCF=pd.reduce((a,b)=>a+b.ncf,0);
+  const pDSCR=pd.reduce((a,b)=>a+b.dscr,0)/pd.length;
+
+  const projPIRR=calcProjectedPIRR();
+  const tPIRR=S.targetPIRR||0;
+
+  const pirrDiff=projPIRR!=null?(projPIRR-tPIRR):null;
+  const pirrDiffStr=pirrDiff!=null?((pirrDiff>=0?'+':'')+( pirrDiff*100).toFixed(1)+'%p'):'N/A';
+  const pirrDiffCol=pirrDiff==null?'var(--text2)':pirrDiff>=0?'var(--green)':pirrDiff>-0.02?'var(--yellow)':'var(--red)';
+
+  arSelectedOpts=[];
+  // category별 그룹
+  const cats=[...new Set(MGMT_OPTIONS.map(o=>o.cat))];
+
+  const decHTML=cats.map(cat=>{
+    const opts=MGMT_OPTIONS.filter(o=>o.cat===cat);
+    return `<div style="grid-column:1/-1;font-size:0.78rem;font-weight:700;color:var(--text2);margin:0.6rem 0 0.3rem;">${cat}</div>`+
+      opts.map(o=>`<button class="ar-dec-btn" id="arb_${o.id}" onclick="toggleArOpt('${o.id}')">
+        <div class="dc">${o.cat}</div>
+        <div class="dn">${o.name}</div>
+        <div class="dd">${o.desc}</div>
+      </button>`).join('');
+  }).join('');
+
+  const ri_label=ri===12?'1년':ri===24?'2년':'3년';
+  const irrLine=tPIRR>0
+    ?`<div class="ar-pirr-card"><div style="font-size:0.8rem;font-weight:700;color:var(--accent);margin-bottom:0.8rem;">🎯 목표 pIRR 달성 현황</div>
+      <div class="ar-pirr-grid">
+        <div><div class="lbl">목표 pIRR</div><div class="val" style="color:var(--accent)">${(tPIRR*100).toFixed(1)}%</div></div>
+        <div><div class="lbl">현재 예상 최종 pIRR</div><div class="val" style="color:${projPIRR!=null?(projPIRR>=tPIRR?'var(--green)':'var(--red)'):'var(--text2)'}">${projPIRR!=null?(projPIRR*100).toFixed(1)+'%':'계산중'}</div></div>
+        <div><div class="lbl">목표 대비</div><div class="val" style="color:${pirrDiffCol}">${pirrDiffStr}</div></div>
+      </div></div>`
+    :'';
+
+  const body=`
+    <div class="ar-header">
+      <h2>📊 운영 ${yearNum}${ri_label}차 재무보고서</h2>
+      <p>보고 기간: 운영 ${(yearNum-1)*ri+1}개월 ~ ${yearNum*ri}개월</p>
+    </div>
+    ${irrLine}
+    <div class="ar-sec">📈 당기 재무 실적</div>
+    <div class="ar-kpi-row">
+      <div class="ar-kpi"><div class="lbl">기간 매출 합계</div><div class="val" style="color:var(--green)">${fmt(pRev)}</div></div>
+      <div class="ar-kpi"><div class="lbl">기간 OPEX 합계</div><div class="val" style="color:var(--red)">${fmt(pOpex)}</div></div>
+      <div class="ar-kpi"><div class="lbl">기간 EBITDA</div><div class="val" style="color:${pEbitda>=0?'var(--green)':'var(--red)'}">${fmt(pEbitda)}</div></div>
+      <div class="ar-kpi"><div class="lbl">기간 원리금상환</div><div class="val" style="color:var(--yellow)">${fmt(pDS)}</div></div>
+      <div class="ar-kpi"><div class="lbl">기간 순현금흐름</div><div class="val" style="color:${pNCF>=0?'var(--green)':'var(--red)'}">${fmt(pNCF)}</div></div>
+      <div class="ar-kpi"><div class="lbl">기간 평균 DSCR</div><div class="val" style="color:${pDSCR>=1.2?'var(--green)':pDSCR>=1?'var(--yellow)':'var(--red)'}">${pDSCR.toFixed(2)}</div></div>
+    </div>
+    <div class="ar-kpi-row">
+      <div class="ar-kpi"><div class="lbl">현재 현금잔액</div><div class="val" style="color:${S.cash>=0?'var(--green)':'var(--red)'}">${fmt(S.cash)}</div></div>
+      <div class="ar-kpi"><div class="lbl">누적 NPV</div><div class="val" style="color:${S.cumulativeNPV>=0?'var(--green)':'var(--red)'}">${fmt(S.cumulativeNPV)}</div></div>
+      <div class="ar-kpi"><div class="lbl">운영 건강도</div><div class="val" style="color:${S.opHealth>=70?'var(--green)':S.opHealth>=40?'var(--yellow)':'var(--red)'}">${S.opHealth}/100</div></div>
+    </div>
+    <div class="ar-sec">🎛️ 다음 기간 운영 결정 <span style="font-size:0.75rem;color:var(--text2);font-weight:400;">(최대 3개 선택)</span></div>
+    <div class="ar-hint">여러 전략을 조합하여 선택하세요. 선택한 결정은 즉시 적용됩니다.</div>
+    <div class="ar-dec-grid" id="ar-dec-grid">${decHTML}</div>
+    <div class="ar-log" id="ar-log" style="display:none;"></div>
+    <div class="ar-bottom">
+      <button class="btn-secondary" onclick="resumeFromReport()">결정 없이 계속 ▶</button>
+      <button class="btn-primary" id="ar-apply-btn" onclick="applyMgmtDecisions()">선택 적용 후 계속 ▶</button>
+    </div>`;
+
+  document.getElementById('annual-modal-body').innerHTML=body;
+  document.getElementById('annual-modal').style.display='block';
+}
+
+function toggleArOpt(id){
+  const idx=arSelectedOpts.indexOf(id);
+  if(idx>=0){
+    arSelectedOpts.splice(idx,1);
+    document.getElementById('arb_'+id).classList.remove('selected');
+  } else {
+    if(arSelectedOpts.length>=3){toast('최대 3개까지 선택 가능합니다.');return;}
+    arSelectedOpts.push(id);
+    document.getElementById('arb_'+id).classList.add('selected');
+  }
+}
+
+function applyMgmtDecisions(){
+  const results=[];
+  arSelectedOpts.forEach(id=>{
+    const opt=MGMT_OPTIONS.find(o=>o.id===id);
+    if(opt){
+      const msg=opt.fn(S);
+      results.push(msg);
+      addLog('📋 결정: '+opt.name+' → '+msg);
+    }
+  });
+  if(results.length){
+    const logEl=document.getElementById('ar-log');
+    if(logEl){logEl.style.display='block';logEl.innerHTML='<b>적용 결과:</b><br>'+results.map(r=>'• '+r).join('<br>');}
+    // 잠깐 결과 보여주고 닫기
+    setTimeout(()=>resumeFromReport(),1500);
+  } else {
+    resumeFromReport();
+  }
+}
+
+function resumeFromReport(){
+  document.getElementById('annual-modal').style.display='none';
+  S.annualReportPending=false;
+  arSelectedOpts=[];
+}
+
+// ═══════════════════════════════════════════════
+// PHASE OVERLAY
+// ═══════════════════════════════════════════════
+function showPhaseOverlay(){
+  const o=document.getElementById('phase-overlay');
+  o.style.display='flex';
+  setTimeout(()=>o.style.display='none',2500);
+}
+
+// ═══════════════════════════════════════════════
+// END / RESULTS
+// ═══════════════════════════════════════════════
+function endSim(){
+  if(tickId){clearInterval(tickId);tickId=null;}
+  document.getElementById('event-dock').style.display='none';
+  document.getElementById('event-card-container').style.display='none';
+  buildResults();
+  goTo('results');
+}
+
+function buildResults(){
+  const s=S;
+  const irr=s.allCFs.length>2?calcIRR(s.allCFs):0;
+  const avgD=s.dscrHistory.length?s.dscrHistory.reduce((a,b)=>a+b,0)/s.dscrHistory.length:0;
+
+  let score=0;
+  // 재무 (5점)
+  if(s.cumulativeNPV>0) score++;
+  if(s.cumulativeNPV>s.totalCapex*0.25) score++;
+  if(irr>s.discount) score++;
+  if(irr>s.discount+0.05) score++;
+  if(s.bepAchieved) score++;
+  // 부채 건전성 (2점)
+  if(avgD>=1.2) score++;
+  if(avgD>=1.5) score++;
+  // 운영 관리 (2점)
+  if(!s.gameOver) score++;
+  if(s.opHealth>=70) score++;
+  // 이벤트 대응 (2점)
+  const autoCount=s.resolvedEvents.filter(e=>e.auto).length;
+  if(autoCount===0) score++;
+  if(autoCount===0&&s.mgmtScore>=50) score++;
+
+  const gm=['D','D','C','C','B','B+','A','A+','S','S','S+','S+'];
+  const gd={'S+':'완벽한 PM! 재무·운영·위기대응 모두 최상위','S':'탁월한 사업성. 거의 완벽한 운영','A+':'우수한 성과. 한두 가지만 더 다듬으면 S','A':'우수한 사업성. 핵심 지표 달성','B+':'양호. 이벤트 대응력을 높이면 A 가능','B':'양호한 사업성. 운영 개선 여지 있음','C':'보통 수준. 리스크 관리 강화 필요','D':'사업성 미흡. 재구조화 검토 필요'};
+  const grade=gm[Math.min(score,gm.length-1)];
+
+  const rg=document.getElementById('result-grade');
+  const gradeDisplay={'S+':'S+','S':'S','A+':'A+','A':'A','B+':'B+','B':'B','C':'C','D':'D'};
+  const gradeCss={'S+':'Sp','S':'S','A+':'Ap','A':'A','B+':'Bp','B':'B','C':'C','D':'D'};
+  rg.textContent=gradeDisplay[grade]||grade;
+  rg.className='grade-letter grade-'+(gradeCss[grade]||'D');
+  document.getElementById('result-grade-desc').textContent=gd[grade];
+
+  const rv=document.getElementById('r-npv');
+  rv.textContent=fmt(s.cumulativeNPV);rv.style.color=s.cumulativeNPV>0?'var(--green)':'var(--red)';
+  const ri=document.getElementById('r-irr');
+  ri.textContent=(irr*100).toFixed(1)+'%';ri.style.color=irr>s.discount?'var(--green)':'var(--red)';
+  const rd=document.getElementById('r-dscr');
+  rd.textContent=avgD.toFixed(2);rd.style.color=avgD>=1.2?'var(--green)':avgD>=1?'var(--yellow)':'var(--red)';
+  const rc=document.getElementById('r-cash');
+  rc.textContent=fmt(s.cash);rc.style.color=s.cash>=0?'var(--purple)':'var(--red)';
+
+  // 목표 pIRR 달성 표시
+  if(s.targetPIRR>0){
+    const grDiv=document.getElementById('result-grade').parentElement;
+    const diff=irr-s.targetPIRR;
+    const col=diff>=0?'var(--green)':diff>-0.02?'var(--yellow)':'var(--red)';
+    const achieved=diff>=0;
+    let pirrBanner=document.getElementById('r-pirr-banner');
+    if(!pirrBanner){pirrBanner=document.createElement('div');pirrBanner.id='r-pirr-banner';pirrBanner.style.cssText='margin-top:1rem;padding:0.8rem 1.2rem;border-radius:8px;font-size:0.9rem;text-align:center;';grDiv.appendChild(pirrBanner);}
+    pirrBanner.style.background=achieved?'rgba(0,230,118,0.1)':'rgba(255,68,68,0.08)';
+    pirrBanner.style.border=`1px solid ${achieved?'var(--green)':'var(--red)'}`;
+    pirrBanner.innerHTML=`🎯 목표 pIRR <b style="color:var(--accent)">${(s.targetPIRR*100).toFixed(1)}%</b> &nbsp;→&nbsp; 실제 IRR <b style="color:${col}">${(irr*100).toFixed(1)}%</b> &nbsp; <b style="color:${col}">${achieved?'✅ 달성':'❌ 미달성'} (${(diff>=0?'+':'')+( diff*100).toFixed(1)}%p)</b>`;
+  }
+
+  // Result chart
+  if(cResult){cResult.destroy();cResult=null;}
+  const cfs=s.monthlyCFs.slice(-24);
+  const labels=cfs.map((_,i)=>`${s.monthlyCFs.length-cfs.length+i+1}M`);
+  cResult=new Chart(document.getElementById('result-chart').getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'월별 현금흐름',data:cfs,
+      backgroundColor:cfs.map(v=>v>=0?'rgba(0,230,118,0.6)':'rgba(255,68,68,0.6)'),
+      borderColor:cfs.map(v=>v>=0?'#00e676':'#ff4444'),borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:9}},grid:{color:'#1e2d50'}},y:{ticks:{callback:v=>fmt(v),font:{size:9}},grid:{color:'#1e2d50'}}}}
+  });
+
+  buildCoaching(s,grade,irr,avgD);
+  saveRecord(grade,irr,s.cumulativeNPV,avgD);
+  renderLeaderboard();
+
+  // Event table
+  const tbody=document.getElementById('evt-table-body');
+  tbody.innerHTML='';
+  s.resolvedEvents.forEach(ev=>{
+    const tr=document.createElement('tr');
+    const optShort=ev.option.length>28?ev.option.substring(0,28)+'…':ev.option;
+    tr.innerHTML=`<td>${ev.month}M</td><td>${ev.title}</td><td style="font-size:0.7rem;">${optShort}</td>
+      <td style="color:${ev.cashImpact>=0?'var(--green)':'var(--red)'}">${fmt(ev.cashImpact)}</td>
+      <td>${ev.auto?'🤖 자동':'✅ 수동'}</td>`;
+    tbody.appendChild(tr);
+  });
+  if(!s.resolvedEvents.length) tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text2);">이벤트 없음</td></tr>';
+
+  // Construction summary
+  const pd=s.plannedCompletionDate;
+  const ad=s.actualCompletionDate||new Date(s.currentDate);
+  const delay=Math.round((ad-pd)/(30*86400000));
+  const ovr=s.totalCapex>0?((s.capexSpent/s.totalCapex-1)*100).toFixed(1):0;
+  document.getElementById('const-summary').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="kpi-result-card"><div class="kpi-result-label">계획 준공일</div>
+        <div class="kpi-result-value" style="font-size:1rem;color:var(--text2);">${pd.getFullYear()}년 ${pd.getMonth()+1}월</div></div>
+      <div class="kpi-result-card"><div class="kpi-result-label">실제 준공일</div>
+        <div class="kpi-result-value" style="font-size:1rem;color:${delay>0?'var(--red)':'var(--green)'};">${ad.getFullYear()}년 ${ad.getMonth()+1}월</div></div>
+      <div class="kpi-result-card"><div class="kpi-result-label">공기 지연</div>
+        <div class="kpi-result-value" style="color:${delay>0?'var(--red)':'var(--green)'};">${delay>0?'+'+delay+'개월':'없음'}</div></div>
+      <div class="kpi-result-card"><div class="kpi-result-label">공사비 초과율</div>
+        <div class="kpi-result-value" style="color:${parseFloat(ovr)>0?'var(--red)':'var(--green)'};">${ovr}%</div></div>
+    </div>`;
+}
+
+function buildCoaching(s,grade,irr,avgD){
+  const lines=[];
+  lines.push(`<p>본 시뮬레이션에서 <strong>${s.infra.name} (${s.infra.loc})</strong> 프로젝트는 종합 등급 <strong>${grade}</strong>를 기록했습니다.</p>`);
+
+  if(s.cumulativeNPV>0)
+    lines.push(`<p>✅ <strong>NPV 양수 (${fmt(s.cumulativeNPV)}):</strong> 할인율 ${(s.discount*100).toFixed(0)}%를 반영해도 가치를 창출하는 사업입니다.</p>`);
+  else
+    lines.push(`<p>⚠️ <strong>NPV 음수 (${fmt(s.cumulativeNPV)}):</strong> 할인율 대비 수익이 부족합니다. 운영 기간 연장이나 매출 구조 개선이 필요합니다.</p>`);
+
+  if(irr>s.discount)
+    lines.push(`<p>✅ <strong>IRR ${(irr*100).toFixed(1)}% > 할인율 ${(s.discount*100).toFixed(0)}%:</strong> 투자 수익률이 자본비용을 상회합니다.</p>`);
+  else
+    lines.push(`<p>⚠️ <strong>IRR ${(irr*100).toFixed(1)}% < 할인율 ${(s.discount*100).toFixed(0)}%:</strong> 레버리지 구조 또는 운영 효율화를 검토하세요.</p>`);
+
+  if(avgD>=1.2)
+    lines.push(`<p>✅ <strong>DSCR ${avgD.toFixed(2)}:</strong> 부채 서비스 능력이 충분합니다. 대주단의 신뢰를 유지할 수 있습니다.</p>`);
+  else if(avgD>=1.0)
+    lines.push(`<p>⚠️ <strong>DSCR ${avgD.toFixed(2)}:</strong> 최소 기준(1.0)은 충족하나 안전마진(1.2) 미달. 대주단 조건 협의가 필요할 수 있습니다.</p>`);
+  else
+    lines.push(`<p>🔴 <strong>DSCR ${avgD.toFixed(2)}:</strong> 부채 상환 능력이 부족합니다. 리파이낸싱 또는 자기자본 추가 투입을 검토하세요.</p>`);
+
+  const ac=s.resolvedEvents.filter(e=>e.auto).length;
+  if(ac>0)
+    lines.push(`<p>⚠️ <strong>${ac}건의 이벤트가 자동처리</strong>되었습니다. 신속한 의사결정이 사업 성과에 직결됩니다.</p>`);
+  else
+    lines.push(`<p>✅ 모든 이벤트를 직접 처리했습니다. 위기 대응 역량이 우수합니다.</p>`);
+
+  if(s.bepAchieved)
+    lines.push(`<p>✅ <strong>BEP 달성:</strong> 운영 시작 후 ${s.bepMonth}개월에 누적 손익분기점을 달성했습니다.</p>`);
+  else
+    lines.push(`<p>🔴 <strong>BEP 미달성:</strong> 시뮬레이션 기간 내 손익분기점에 도달하지 못했습니다. 운영 기간 연장 또는 수익 개선이 필요합니다.</p>`);
+
+  const rec=grade==='S+'||grade==='S'?'현 전략을 유지하고 리파이낸싱·증설 기회를 검토하세요.':
+    grade==='A+'||grade==='A'?'이벤트 신속 대응과 운영건강도 90+ 유지가 S 등급의 열쇠입니다.':
+    grade==='B+'||grade==='B'?'이벤트 자동처리를 줄이고 DSCR 1.5 이상을 목표로 재무구조를 개선하세요.':
+    grade==='C'?'매출 타리프 재협상 또는 OPEX 절감으로 DSCR을 1.2 이상으로 끌어올리세요.':
+    '사업 구조 전면 재검토가 필요합니다. EPC 선택·자본구조·수익모델을 다시 검토하세요.';
+  lines.push(`<p><strong>종합 권고:</strong> ${rec}</p>`);
+
+  // ── S+ 달성 분석 ──
+  if(grade!=='S+'){
+    const missing=[];
+    if(s.cumulativeNPV<=s.totalCapex*0.25) missing.push(`NPV를 총사업비의 25%(${fmt(s.totalCapex*0.25)}) 이상으로 높여야 합니다 — 현재 ${fmt(s.cumulativeNPV)}`);
+    if(irr<=s.discount+0.05) missing.push(`IRR을 할인율+5%(${((s.discount+0.05)*100).toFixed(1)}%) 이상으로 달성해야 합니다 — 현재 ${(irr*100).toFixed(1)}%`);
+    if(avgD<1.5) missing.push(`평균 DSCR 1.5 이상이 필요합니다 — 현재 ${avgD.toFixed(2)}`);
+    if(s.opHealth<90) missing.push(`운영건강도 90 이상 유지 (이벤트 신속 대응 필수) — 현재 ${s.opHealth}`);
+    if(s.mgmtScore<50) missing.push(`PM 스코어 50+ 달성 (신속 대응 10회 이상) — 현재 ${s.mgmtScore}`);
+    if(ac>0) missing.push(`모든 이벤트를 직접 처리해야 합니다 — 자동처리 ${ac}건 발생`);
+    if(missing.length){
+      lines.push(`<div style="margin-top:1.2rem;padding:1rem;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.3);border-radius:8px;">
+        <div style="font-size:0.88rem;font-weight:700;color:#ffd700;margin-bottom:0.6rem;">🏆 S+ 달성을 위해 필요했던 것</div>
+        ${missing.map(m=>`<div style="font-size:0.8rem;color:var(--text2);margin-bottom:0.4rem;">• ${m}</div>`).join('')}
+      </div>`);
+    }
+  } else {
+    lines.push(`<div style="margin-top:1rem;padding:1rem;background:rgba(255,215,0,0.1);border:1px solid #ffd700;border-radius:8px;text-align:center;font-size:0.9rem;color:#ffd700;font-weight:700;">🏆 완벽한 S+ 달성! 모든 조건을 충족했습니다.</div>`);
+  }
+
+  document.getElementById('coaching-text').innerHTML=lines.join('');
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+buildInfraGrid();
+buildLocGrid();
+</script>
+</body>
+</html>
