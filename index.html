@@ -1446,7 +1446,8 @@ function startSim(){
     plannedCompletionDate:pcd, actualCompletionDate:null,
     initConstMonths:v.constructionMonths,
     stableRevMode:false, evtReduction:0, evtReductionMo:0,
-    annualReportPending:false
+    annualReportPending:false,
+    opStartYear:null, lastReportYear:null, reportCount:0, lastReportOpMonth:0
   };
 
   initCharts();
@@ -1553,6 +1554,8 @@ function processMonth(){
       S.phase='operation';
       S.constructionProgress=1;
       S.actualCompletionDate=new Date(S.currentDate);
+      S.opStartYear=S.currentDate.getFullYear();
+      S.lastReportYear=S.currentDate.getFullYear();
       if(!S.transitionShown){showPhaseOverlay();S.transitionShown=true;}
       switchToOpCharts();
     }
@@ -1641,14 +1644,26 @@ function doOpMonth(){
     return;
   }
 
-  // 연간 재무보고서 트리거
-  if(S.reportInterval&&m>0&&m%S.reportInterval===0&&m<S.operationMonths&&!S.annualReportPending){
-    S.annualReportPending=true;
-    S.speedDays=0;
-    document.getElementById('speed-slider').value=0;
-    document.getElementById('speed-label').textContent=SPEED_CFG[0].label;
-    const yearNum=Math.floor(m/S.reportInterval);
-    setTimeout(()=>showAnnualReport(yearNum),300);
+  // 연말(12월→1월) 재무보고서 트리거
+  if(S.reportInterval>0&&!S.annualReportPending&&S.opStartYear!==null){
+    const curYear=S.currentDate.getFullYear();
+    if(curYear>S.lastReportYear){
+      const riYears=S.reportInterval/12;
+      const yearsSinceStart=curYear-S.opStartYear;
+      if(yearsSinceStart>0&&yearsSinceStart%riYears===0){
+        S.annualReportPending=true;
+        S.reportCount++;
+        const fromMo=S.lastReportOpMonth;
+        S.lastReportOpMonth=S.opMonthsDone;
+        S.lastReportYear=curYear;
+        S.speedDays=0;
+        document.getElementById('speed-slider').value=0;
+        document.getElementById('speed-label').textContent=SPEED_CFG[0].label;
+        setTimeout(()=>showAnnualReport(S.reportCount,fromMo,S.opMonthsDone),300);
+      } else {
+        S.lastReportYear=curYear;
+      }
+    }
   }
 }
 
@@ -1967,10 +1982,11 @@ function calcProjectedPIRR(){
 
 let arSelectedOpts=[];
 
-function showAnnualReport(yearNum){
+function showAnnualReport(yearNum,fromMo,toMo){
   const ri=S.reportInterval||12;
-  const periodStart=(yearNum-1)*ri;
-  const pd=S.periodData.slice(periodStart, periodStart+ri);
+  if(fromMo===undefined) fromMo=(yearNum-1)*ri;
+  if(toMo===undefined) toMo=yearNum*ri;
+  const pd=S.periodData.slice(fromMo,toMo);
   if(!pd.length){S.annualReportPending=false;return;}
 
   const pRev=pd.reduce((a,b)=>a+b.rev,0);
@@ -2002,6 +2018,7 @@ function showAnnualReport(yearNum){
   }).join('');
 
   const ri_label=ri===12?'1년':ri===24?'2년':'3년';
+  const reportYear=S.lastReportYear?S.lastReportYear-1:null;
   const irrLine=tPIRR>0
     ?`<div class="ar-pirr-card"><div style="font-size:0.8rem;font-weight:700;color:var(--accent);margin-bottom:0.8rem;">🎯 목표 pIRR 달성 현황</div>
       <div class="ar-pirr-grid">
@@ -2013,8 +2030,8 @@ function showAnnualReport(yearNum){
 
   const body=`
     <div class="ar-header">
-      <h2>📊 운영 ${yearNum}${ri_label}차 재무보고서</h2>
-      <p>보고 기간: 운영 ${(yearNum-1)*ri+1}개월 ~ ${yearNum*ri}개월</p>
+      <h2>📊 ${reportYear||''}년 연간 재무보고서</h2>
+      <p>${reportYear||''}년 12월 31일 기준 · 운영 ${fromMo+1}개월 ~ ${toMo}개월</p>
     </div>
     ${irrLine}
     <div class="ar-sec">📈 당기 재무 실적</div>
