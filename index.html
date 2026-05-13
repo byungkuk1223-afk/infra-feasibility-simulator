@@ -285,6 +285,72 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter','Segoe UI
 #event-flash.ef-crisis{border-color:var(--red);box-shadow:0 0 40px rgba(255,68,68,0.4);}
 #event-flash.ef-opportunity{border-color:var(--green);box-shadow:0 0 40px rgba(0,230,118,0.4);}
 
+/* GAME GLOBALS */
+.hud-label { font-size:0.62rem; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--text2); }
+.glow-box { box-shadow:0 0 0 1px var(--accent), 0 0 20px rgba(37,99,235,0.3); }
+.glow-green { box-shadow:0 0 0 1px var(--green), 0 0 20px rgba(34,197,94,0.3); }
+.screen-section-label { font-size:0.65rem; letter-spacing:0.18em; text-transform:uppercase; color:var(--accent-light); font-weight:700; margin-bottom:0.8rem; display:flex; align-items:center; gap:0.5rem; }
+.screen-section-label::before { content:''; display:block; width:16px; height:2px; background:var(--accent); }
+.screen-section-label::after { content:''; display:block; flex:1; height:1px; background:linear-gradient(90deg,var(--border),transparent); }
+
+/* GAME SCREEN HEADERS — override */
+.screen-header { background:var(--card); border-bottom:1px solid var(--border); border-top:none; padding:0; display:flex; align-items:stretch; gap:0; flex-shrink:0; overflow:hidden; }
+.screen-header-inner { display:flex; align-items:center; gap:1rem; padding:0.7rem 1.5rem; flex:1; }
+.screen-header-step { background:var(--accent); color:#fff; font-size:0.65rem; font-weight:900; letter-spacing:0.12em; padding:0 1.2rem; display:flex; align-items:center; justify-content:center; text-transform:uppercase; min-width:90px; flex-shrink:0; }
+.screen-header h2 { font-size:0.9rem; font-weight:700; color:var(--text); letter-spacing:0.05em; text-transform:uppercase; }
+
+/* GAME STEP DOTS — override existing */
+.step-indicator { display:flex; gap:0.3rem; margin-left:auto; align-items:center; }
+.step { width:28px; height:3px; border-radius:1px; background:var(--border); transition:all 0.3s; }
+.step.done { background:var(--accent); }
+.step.active { background:var(--accent-light); box-shadow:0 0 8px var(--accent); }
+
+/* GAME INFRA SCREEN */
+#screen-infra { background:var(--bg); }
+.infra-filter-bar { display:flex; gap:0.4rem; padding:0.7rem 1.5rem; border-bottom:1px solid var(--border); flex-shrink:0; background:var(--card); }
+.filter-btn { background:transparent; border:1px solid var(--border); color:var(--text2); padding:0.35rem 1rem; border-radius:3px; cursor:pointer; font-size:0.72rem; white-space:nowrap; transition:all 0.15s; font-family:inherit; letter-spacing:0.05em; font-weight:600; text-transform:uppercase; }
+.filter-btn.active, .filter-btn:hover { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 0 12px rgba(37,99,235,0.4); }
+.infra-card { min-height:190px; }
+.infra-card.selected { background:rgba(37,99,235,0.08); }
+.infra-name { font-size:0.9rem; font-weight:700; letter-spacing:0.02em; }
+.infra-icon { font-size:2.8rem; margin-bottom:0.8rem; filter:drop-shadow(0 0 8px rgba(255,255,255,0.3)); }
+
+/* GAME EPC SCREEN */
+.epc-card.selected { background:rgba(37,99,235,0.1); border-color:var(--accent) !important; box-shadow:0 0 0 1px var(--accent), 0 0 24px rgba(37,99,235,0.35) !important; }
+
+/* GAME SIM TOPBAR */
+.sim-topbar { background:rgba(8,15,30,0.97); border-bottom:1px solid rgba(37,99,235,0.3); border-top:2px solid var(--accent); padding:0.5rem 1rem; }
+.sim-date-display { font-size:0.9rem; font-weight:700; color:#fff; font-variant-numeric:tabular-nums; background:rgba(37,99,235,0.15); padding:0.2rem 0.7rem; border-radius:3px; border:1px solid rgba(37,99,235,0.3); }
+.phase-badge.construction { background:rgba(245,158,11,0.15); color:var(--yellow); border:1px solid rgba(245,158,11,0.4); border-radius:3px; letter-spacing:0.06em; font-size:0.68rem; }
+.phase-badge.operation { background:rgba(34,197,94,0.15); color:var(--green); border:1px solid rgba(34,197,94,0.4); border-radius:3px; letter-spacing:0.06em; font-size:0.68rem; }
+.sim-left, .sim-right { background:rgba(8,15,30,0.9); border-color:rgba(37,99,235,0.2); }
+.kpi-card { background:rgba(13,22,40,0.9); border:1px solid rgba(37,99,235,0.2); border-left:2px solid var(--accent); border-radius:4px; }
+.kpi-label { font-size:0.6rem; letter-spacing:0.12em; font-weight:700; text-transform:uppercase; }
+.chart-card { background:rgba(13,22,40,0.9); border:1px solid rgba(37,99,235,0.15); border-radius:4px; }
+.chart-card h4 { letter-spacing:0.1em; font-size:0.65rem; }
+
+/* GAME RESULTS SCREEN */
+.grade-display { background:linear-gradient(135deg,#040810,#0a1628); border:1px solid rgba(37,99,235,0.3); border-top:3px solid var(--accent); }
+.kpi-result-card { background:rgba(8,15,30,0.9); border:1px solid rgba(37,99,235,0.2); border-top:2px solid var(--accent); border-radius:4px; }
+.result-chart-card { background:rgba(8,15,30,0.9); border:1px solid rgba(37,99,235,0.2); border-radius:4px; }
+.coaching-section { background:rgba(8,15,30,0.9); border:1px solid rgba(37,99,235,0.2); border-left:3px solid var(--accent-light); border-radius:4px; }
+
+/* GAME ANNUAL REPORT */
+#annual-modal { background:rgba(2,5,12,0.97); }
+.ar-wrap { border:1px solid rgba(37,99,235,0.2); border-radius:8px; background:rgba(8,15,30,0.8); margin-top:3rem; }
+.ar-dec-btn { border-radius:4px; border-left:3px solid transparent; }
+.ar-dec-btn:hover { border-left-color:var(--accent); }
+.ar-dec-btn.selected { border-left-color:var(--green) !important; }
+
+/* EVENT FLASH game style */
+#event-flash { border-radius:4px; border-width:1px; }
+
+/* GAME TOAST */
+#toast { border-radius:3px; border-top:2px solid var(--accent); letter-spacing:0.02em; }
+
+/* SPEED SLIDER game track */
+.speed-slider { background:linear-gradient(90deg, var(--accent) var(--val,0%), var(--border) var(--val,0%)); }
+
 @media(max-width:900px) {
   .infra-grid { grid-template-columns:repeat(2,1fr); }
   .kpi-grid { grid-template-columns:repeat(2,1fr); }
@@ -459,10 +525,13 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter','Segoe UI
 <!-- SCREEN 2: INFRA SELECTION -->
 <div id="screen-infra" class="screen">
   <div class="screen-header">
-    <button class="btn-secondary" onclick="goTo('loc')" style="padding:0.4rem 1rem;font-size:0.8rem;">← 뒤로</button>
-    <h2>인프라 유형 선택</h2>
-    <div class="step-indicator">
-      <div class="step done"></div><div class="step active"></div><div class="step"></div><div class="step"></div><div class="step"></div>
+    <div class="screen-header-step">STEP 02</div>
+    <div class="screen-header-inner">
+      <button class="btn-secondary" onclick="goTo('loc')" style="padding:0.3rem 0.8rem;font-size:0.75rem;">← 뒤로</button>
+      <h2>PROJECT SELECT</h2>
+      <div class="step-indicator">
+        <div class="step done"></div><div class="step active"></div><div class="step"></div><div class="step"></div><div class="step"></div>
+      </div>
     </div>
   </div>
   <div class="infra-filter-bar">
@@ -491,10 +560,13 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter','Segoe UI
 <!-- SCREEN 3: FINANCIAL SETUP -->
 <div id="screen-setup" class="screen">
   <div class="screen-header">
-    <button class="btn-secondary" onclick="goTo('infra')" style="padding:0.4rem 1rem;font-size:0.8rem;">← 뒤로</button>
-    <h2>재무모델 설정</h2>
-    <div class="step-indicator">
-      <div class="step done"></div><div class="step done"></div><div class="step active"></div><div class="step"></div><div class="step"></div>
+    <div class="screen-header-step">STEP 03</div>
+    <div class="screen-header-inner">
+      <button class="btn-secondary" onclick="goTo('infra')" style="padding:0.3rem 0.8rem;font-size:0.75rem;">← 뒤로</button>
+      <h2>FINANCIAL LOADOUT</h2>
+      <div class="step-indicator">
+        <div class="step done"></div><div class="step done"></div><div class="step active"></div><div class="step"></div><div class="step"></div>
+      </div>
     </div>
   </div>
 
@@ -603,9 +675,12 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter','Segoe UI
 <!-- SCREEN EPC -->
 <div id="screen-epc" class="screen">
   <div class="screen-header">
-    <button class="btn-secondary" onclick="goTo('setup')" style="padding:0.4rem 1rem;font-size:0.8rem;">← 뒤로</button>
-    <h2>🏗️ EPC 시공사 선택</h2>
-    <div class="step-indicator"><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step active"></div><div class="step"></div></div>
+    <div class="screen-header-step">STEP 04</div>
+    <div class="screen-header-inner">
+      <button class="btn-secondary" onclick="goTo('setup')" style="padding:0.3rem 0.8rem;font-size:0.75rem;">← 뒤로</button>
+      <h2>CONTRACTOR SELECT</h2>
+      <div class="step-indicator"><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step active"></div><div class="step"></div></div>
+    </div>
   </div>
   <div class="epc-grid" id="epc-grid"></div>
   <div style="padding:1rem 2rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
@@ -695,13 +770,17 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter','Segoe UI
 <!-- SCREEN 5: RESULTS -->
 <div id="screen-results" class="screen">
   <div class="screen-header" style="position:sticky;top:0;z-index:10;">
-    <h2>📊 시뮬레이션 결과</h2>
-    <div class="step-indicator">
-      <div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step done"></div>
+    <div class="screen-header-step" style="background:var(--green);color:#000;">DEBRIEF</div>
+    <div class="screen-header-inner">
+      <h2>MISSION COMPLETE — 사업타당성 최종 보고서</h2>
+      <div class="step-indicator">
+        <div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step done"></div>
+      </div>
     </div>
   </div>
   <div class="results-content">
     <div class="grade-display">
+      <div class="screen-section-label" style="justify-content:center;margin-bottom:1rem;">INVESTMENT GRADE ASSESSMENT</div>
       <span class="grade-letter grade-B" id="result-grade">B</span>
       <div class="grade-subtitle" id="result-grade-desc">사업성 양호</div>
     </div>
@@ -1298,6 +1377,8 @@ function buildInfraGrid(){
     const c=document.createElement('div');
     c.className='infra-card';
     c.dataset.id=inf.id;
+    const catColors={coal:'#ef4444',nuclear:'#f59e0b',hydro:'#3b82f6',solar:'#f59e0b',offshore_wind:'#06b6d4',onshore_wind:'#06b6d4',ccgt:'#f97316',biomass:'#22c55e',wte:'#84cc16',geothermal:'#ef4444',bess:'#8b5cf6',bess_solar:'#8b5cf6',lng:'#f97316',green_nh3:'#22c55e',blue_nh3:'#3b82f6',hydrogen:'#06b6d4',saf:'#f59e0b',petrochem:'#f97316',port:'#2563eb',road:'#94a3b8',metro:'#8b5cf6',pipeline:'#f97316',hvdc:'#06b6d4',hospital:'#ec4899',water:'#3b82f6'};
+    c.style.borderTop=`2px solid ${catColors[inf.id]||'var(--accent)'}`;
     c.innerHTML=`<div class="infra-icon">${inf.icon}</div>
       <div class="infra-name">${inf.name}</div>
       <div style="font-size:0.72rem;color:var(--accent);margin-bottom:0.6rem;">${inf.capacity}</div>
@@ -1773,26 +1854,16 @@ function doOpMonth(){
     return;
   }
 
-  // 연말(12월→1월) 재무보고서 트리거
-  if(S.reportInterval>0&&!S.annualReportPending&&S.opStartYear!==null){
-    const curYear=S.currentDate.getFullYear();
-    if(curYear>S.lastReportYear){
-      const riYears=S.reportInterval/12;
-      const yearsSinceStart=curYear-S.opStartYear;
-      if(yearsSinceStart>0&&yearsSinceStart%riYears===0){
-        S.annualReportPending=true;
-        S.reportCount++;
-        const fromMo=S.lastReportOpMonth;
-        S.lastReportOpMonth=S.opMonthsDone;
-        S.lastReportYear=curYear;
-        S.speedDays=0;
-        document.getElementById('speed-slider').value=0;
-        document.getElementById('speed-label').textContent=SPEED_CFG[0].label;
-        setTimeout(()=>showAnnualReport(S.reportCount,fromMo,S.opMonthsDone),300);
-      } else {
-        S.lastReportYear=curYear;
-      }
-    }
+  // 재무보고서 트리거 (N개월마다)
+  if(S.reportInterval>0&&!S.annualReportPending&&m>0&&m%S.reportInterval===0&&m<S.operationMonths){
+    S.annualReportPending=true;
+    S.reportCount++;
+    const fromMo=S.lastReportOpMonth;
+    S.lastReportOpMonth=m;
+    S.speedDays=0;
+    document.getElementById('speed-slider').value=0;
+    document.getElementById('speed-label').textContent=SPEED_CFG[0].label;
+    setTimeout(()=>showAnnualReport(S.reportCount,fromMo,m),300);
   }
 }
 
@@ -2159,8 +2230,9 @@ function showAnnualReport(yearNum,fromMo,toMo){
 
   const body=`
     <div class="ar-header">
-      <h2>📊 ${reportYear||''}년 연간 재무보고서</h2>
-      <p>${reportYear||''}년 12월 31일 기준 · 운영 ${fromMo+1}개월 ~ ${toMo}개월</p>
+      <div class="screen-section-label" style="justify-content:center;">ANNUAL BRIEFING · YEAR ${yearNum}</div>
+      <h2>${reportYear||''}년 연간 재무 보고서</h2>
+      <p>운영 ${fromMo+1}개월 ~ ${toMo}개월 · ${toMo-fromMo}개월 실적</p>
     </div>
     ${irrLine}
     <div class="ar-sec">📈 당기 재무 실적</div>
@@ -2177,7 +2249,7 @@ function showAnnualReport(yearNum,fromMo,toMo){
       <div class="ar-kpi"><div class="lbl">누적 NPV</div><div class="val" style="color:${S.cumulativeNPV>=0?'var(--green)':'var(--red)'}">${fmt(S.cumulativeNPV)}</div></div>
       <div class="ar-kpi"><div class="lbl">운영 건강도</div><div class="val" style="color:${S.opHealth>=70?'var(--green)':S.opHealth>=40?'var(--yellow)':'var(--red)'}">${S.opHealth}/100</div></div>
     </div>
-    <div class="ar-sec">🎛️ 다음 기간 운영 결정 <span style="font-size:0.75rem;color:var(--text2);font-weight:400;">(최대 3개 선택)</span></div>
+    <div class="ar-sec">🎛️ STRATEGIC DECISION — 다음 기간 운영 결정 <span style="font-size:0.75rem;color:var(--text2);font-weight:400;">(최대 3개 선택)</span></div>
     <div class="ar-hint">여러 전략을 조합하여 선택하세요. 선택한 결정은 즉시 적용됩니다.</div>
     <div class="ar-dec-grid" id="ar-dec-grid">${decHTML}</div>
     <div class="ar-log" id="ar-log" style="display:none;"></div>
